@@ -100,13 +100,13 @@ if ~opt.plotSingle % in this case, all activities are plotted in one figure (usi
     elseif isfield(opt,'maxE')
         caxisMinMax(1) = -opt.maxE;
     else
-        caxisMinMax(1) = nanmin(slipIDcor(~isinf(slipIDcor)),'all');
+        caxisMinMax(1) = min(slipIDcor(~isinf(slipIDcor)),[],'all','omitnan');
     end
 
     if isfield(opt,'maxE')
         caxisMinMax(2) = opt.maxE;
     else
-        caxisMinMax(2) = nanmax(slipIDcor(~isinf(slipIDcor)),'all');
+        caxisMinMax(2) = max(slipIDcor(~isinf(slipIDcor)),[],'all','omitnan');
     end
 
     % loop over all axes to adjust color scale and if needed logaritmic
@@ -307,8 +307,8 @@ end
 % if required, plot residual
 if opt.plotResidual && (opt.IDMethod == 1 || opt.IDMethod == 2)
     figure;
-    meanResidual = nanmean(residualEeff(:));
-    stdResidual = nanstd(residualEeff(:));
+    meanResidual = mean(residualEeff(:),'omitnan');
+    stdResidual = std(residualEeff(:),'omitnan');
     plot(ebsdID, residualEeff,'micronbar','off' ); title(['residual Eeff,mean=',num2str(meanResidual)]);
     caxis([0 2*stdResidual])
     mtexColorMap(opt.cmap)
