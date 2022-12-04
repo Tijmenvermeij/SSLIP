@@ -21,10 +21,11 @@
 
 clear
 close all
-addpath('./src')
+
+addpath(fullfile(pwd,'..','src'));
 
 % load aligned data
-load('./data/NiSuperAloy_Aligned.mat');
+load(fullfile(pwd,'..','data','NiSuperAloy_Aligned.mat'));
 
 % set MTex preferences
 setMTEXpref('xAxisDirection','east');

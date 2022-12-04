@@ -18,7 +18,8 @@
 
 clear
 close all
-addpath('./src')
+
+addpath(fullfile(pwd,'..','src'));
 
 setMTEXpref('xAxisDirection','east');
 setMTEXpref('zAxisDirection','intoplane');
