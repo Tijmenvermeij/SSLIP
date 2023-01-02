@@ -310,7 +310,14 @@ if opt.plotResidual && (opt.IDMethod == 1 || opt.IDMethod == 2)
     meanResidual = mean(residualEeff(:),'omitnan');
     stdResidual = std(residualEeff(:),'omitnan');
     plot(ebsdID, residualEeff,'micronbar','off' ); title(['residual Eeff,mean=',num2str(meanResidual)]);
-    caxis([0 2*stdResidual])
+    if isfield(opt,'residualScaleSame')
+        caxis(caxisMinMax)
+        if opt.logscale
+            set(gca,'colorscale','log')
+        end
+    else
+        caxis([0 2*stdResidual])
+    end
     mtexColorMap(opt.cmap)
     mtexColorbar
     if opt.saveFig

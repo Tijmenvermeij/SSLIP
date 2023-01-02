@@ -208,7 +208,7 @@ IDoptions.layout = [4 6];
 IDoptions.plotTraces = 1;
 
 % give this a name for saving
-IDoptions.casename = ['HCP_Virt_',nameOri,'_',nameSlip];
+IDoptions.casename = ['HCP_Virt_',nameOri,'_',nameSlip,'_',idName{Ss_batch}];
 
 % specify wether or not to plot defGrad fields and Eff shear strain fields,
 % before performing SSLIP
@@ -247,7 +247,6 @@ IDoptions.comment = '';
 
 %%% choose which analysis to do, based on batch number (could be used to try
 % a lot of things in a loop)
-IDoptions.casename = idName{Ss_batch}; 
 IDoptions.NoSs = NoSs_batch{Ss_batch};
 
 % define the displacement field which should be used

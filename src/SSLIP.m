@@ -70,7 +70,7 @@ end
 %
 % Defined in datapoints
 % use 0 for no filtering
-if ~isfield(opt,'filtSize')
+if ~isfield(opt,'filterSize')
     opt.filterSize = 1;
 end
 

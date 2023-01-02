@@ -85,8 +85,8 @@ WaitMessage = parfor_wait(numAnalysis,'ReportInterval',ceil(numAnalysis/20));
 
 %%% loop over all points
 
-% parfor i=1:length(Hxx(:))
-for i=1:length(Hxx(:))
+parfor i=1:length(Hxx(:))
+% for i=1:length(Hxx(:))
 
     % do some checks to see if ID needs to be performed
     
