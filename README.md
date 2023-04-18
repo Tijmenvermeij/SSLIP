@@ -10,6 +10,8 @@ The **SSLIP** function library is written in [**MATLAB**](https://mathworks.com/
 
 The **SSLIP** methodology and plotting functionalities are highlighted in a series of [example scripts](https://github.com/Tijmenvermeij/SSLIP#examples) that showcase how the functions work and what their output comprises.
 
+Recently, this work was presented at the annual MTEX Workshop, see a recorded video [*here*](https://www.youtube.com/watch?v=xjNWsHeHnlA).
+
 Please report any bugs you encounter.
 
 # Authors
