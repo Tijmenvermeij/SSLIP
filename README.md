@@ -8,6 +8,8 @@ Slip System based Identification of Local Plasticity (**SSLIP**) is a methodolog
 
 The **SSLIP** function library is written in [**MATLAB**](https://mathworks.com/products/matlab.html) and uses several functionalities of the MATLAB-based crystallographic toolbox [**MTEX**](https://mtex-toolbox.github.io).
 
+It is important to use aligned EBSD/DIC data. See the following repository for an alignment framework: [**NanoMech_Alignment_Matlab**](https://github.com/Tijmenvermeij/NanoMech_Alignment_Matlab).
+
 The **SSLIP** methodology and plotting functionalities are highlighted in a series of [example scripts](https://github.com/Tijmenvermeij/SSLIP#examples) that showcase how the functions work and what their output comprises.
 
 Recently, this work was presented at the annual MTEX Workshop, see a recorded video [*here*](https://www.youtube.com/watch?v=xjNWsHeHnlA).
