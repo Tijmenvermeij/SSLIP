@@ -6,7 +6,7 @@
 
 Slip System based Identification of Local Plasticity (**SSLIP**) is a methodology for automatic, point-by-point, identification of crystallographic slip system activity fields, performed by matching of Digital Image Correlation (DIC) displacement gradient fields to combinations of theoretical slip systems (resulting from e.g. EBSD). More details can be found in [**this paper**](https://doi.org/10.1016/j.actamat.2022.118502).
 
-The **SSLIP** function library is written in [**MATLAB**](https://mathworks.com/products/matlab.html) and uses several functionalities of the MATLAB-based crystallographic toolbox [**MTEX**](https://mtex-toolbox.github.io).
+The **SSLIP** function library is written in [**MATLAB**](https://mathworks.com/products/matlab.html) and uses several functionalities of the MATLAB-based crystallographic toolbox [**MTEX**](https://mtex-toolbox.github.io). **WARNING: Make sure to use Mtex 5.11 or lower, Mtex 6.0 and above does not work with SSLIP**
 
 It is important to use aligned EBSD/DIC data. See the following repository for an alignment framework: [**NanoMech_Alignment_Matlab**](https://github.com/Tijmenvermeij/NanoMech_Alignment_Matlab).
 
