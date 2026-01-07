@@ -54,7 +54,7 @@ text(grains,grains.id)
 hold off
 
 %% choose a grain and define slip systems
-grainId = 142; %grain used in Figure 5 in SSLIP paper
+grainId = 18; %grain used in Figure 5 in SSLIP paper
 
 % define FCC slip systems
 sS = slipSystem.fcc(newEBSD.CS);
@@ -210,6 +210,7 @@ mtexColorbar
 
 % %%% potentially, for replotting:
 % plotSSLIP(ebsdID.prop.slipIDcor,ebsdID.prop.residualEeff,ebsdID,sSLocal,optOut)
+
 
 
 
