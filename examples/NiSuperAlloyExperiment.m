@@ -11,7 +11,7 @@
 % the latest version of this code can be found on
 % www.github.com/TijmenVermeij/SSLIP
 %
-% MTEX is required to use this code
+% MTEX V6.1+ is required to use this code
 %
 % The data was retrieved from Zenodo (https://doi.org/10.5281/zenodo.3691903), after which we aligned it using our Nanomechanical testing framework (https://doi.org/10.1007/s11340-022-00884-0) 
 % The Ni-based superalloy RR1000 was deformed under uniaxial tension to a global strain of ∼ 0.02, data was acquired by Harte et al.
@@ -61,7 +61,7 @@ sS = slipSystem.fcc(newEBSD.CS);
 sS = sS.symmetrise('antipodal');
 % reorder systems for later plotting of 3 rows and 4 cols, with each column
 % having the same slip plane
-sS = sS([1 4 7 10 2 5 8 11 3 6 9 12]);
+sS = sS([12 3 7 5 11 2 8 4 10 1 9 6]);
 
 % get local slip systems
 sSLocal = grains(grainId).meanOrientation * sS;
@@ -210,6 +210,7 @@ mtexColorbar
 
 % %%% potentially, for replotting:
 % plotSSLIP(ebsdID.prop.slipIDcor,ebsdID.prop.residualEeff,ebsdID,sSLocal,optOut)
+
 
 
 
