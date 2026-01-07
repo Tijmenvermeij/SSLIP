@@ -11,7 +11,7 @@
 % the latest version of this code can be found on
 % www.github.com/TijmenVermeij/SSLIP
 %
-% MTEX is required to use this code
+% MTEX 6.1 or higher is required to use this code
 
 
 %% Initiallize Mtex
@@ -35,6 +35,8 @@ nameOri = 'ori1';
 
 % define orientation
 ori = orientation(rotation.byAxisAngle(zvector,45*degree)*rotation.byAxisAngle(xvector,45*degree)*rotation.byAxisAngle(zvector,15*degree),CS);
+% mirror orientation over z to assure orientation is the same as in original paper (needed for Mtex 6.1+ functionality)
+ori = -rotation.byAxisAngle(zvector,pi) * ori;
 
 % define the slip systems for each slip family
 sSBas = symmetrise(slipSystem.basal(CS),'antipodal');
@@ -70,8 +72,8 @@ ebsd = ebsd.gridify;
 % in this case, there will be 4 slip "activities" (traces), therefore the
 % variables have length 4
 
-% slip system numbers
-systems = [3 3 14 24]';
+% slip system numbers (changed wrt to the paper to enable functioning with MTex 6.1+)
+systems = [3 3 7 19]';
 
 % name of the virtual exp
 nameSlip = 'test1';
@@ -272,6 +274,7 @@ mtexColorbar
 
 % %%% potentially, for replotting:
 % plotSSLIP(ebsdID.prop.slipIDcor,ebsdID.prop.residualEeff,ebsdID,sSLocal,optOut)
+
 
 
 
