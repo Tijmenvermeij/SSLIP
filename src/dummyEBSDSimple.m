@@ -6,19 +6,16 @@ function ebsd = dummyEBSDSimple(ori,X,Y)
     prop.x = X(:);
     prop.y = Y(:);
     
+    pos = vector3d(prop.x,prop.y,zeros(size(prop.x)));
+
     CS = ori.CS;
     oris = repmat(ori,size(prop.x));
     
     phase = ones(size(prop.x));
-    ebsd = EBSD(oris,phase,CS,prop);
+    % ebsd = EBSD(oris,phase,CS,prop);
+    ebsd = EBSD(pos,oris,phase,CS, struct());
     
-    % define unitcell, only for square grid
-    spacing = mean(diff(X(1,:)));
-    ebsd.unitCell = [spacing/2 -spacing/2
-        spacing/2 spacing/2
-        -spacing/2 spacing/2
-        -spacing/2 -spacing/2];
-    
+    % gridify EBSD data
     ebsd = ebsd.gridify;
     ebsd.scanUnit = 'um';
 

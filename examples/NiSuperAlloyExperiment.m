@@ -16,7 +16,6 @@
 % The data was retrieved from Zenodo (https://doi.org/10.5281/zenodo.3691903), after which we aligned it using our Nanomechanical testing framework (https://doi.org/10.1007/s11340-022-00884-0) 
 % The Ni-based superalloy RR1000 was deformed under uniaxial tension to a global strain of ∼ 0.02, data was acquired by Harte et al.
 
-
 %% Initiallize Mtex etc
 
 clear
@@ -28,8 +27,11 @@ addpath(fullfile(pwd,'..','src'));
 load(fullfile(pwd,'..','data','NiSuperAloy_Aligned.mat'));
 
 % set MTex preferences
-setMTEXpref('xAxisDirection','east');
-setMTEXpref('zAxisDirection','intoplane');
+plotx2east
+plotzIntoPlane
+
+plottingConvention.default.east = xvector;
+plottingConvention.default.outOfScreen = -zvector;
 
 %% plot some things to show the data
 
@@ -51,12 +53,11 @@ hold on
 text(grains,grains.id)
 hold off
 
-
 %% choose a grain and define slip systems
-grainId = 141; %grain used in Figure 5 in SSLIP paper
+grainId = 142; %grain used in Figure 5 in SSLIP paper
 
 % define FCC slip systems
-sS = slipSystem.fcc(CS{2});
+sS = slipSystem.fcc(newEBSD.CS);
 sS = sS.symmetrise('antipodal');
 % reorder systems for later plotting of 3 rows and 4 cols, with each column
 % having the same slip plane
@@ -68,6 +69,7 @@ sSLocal = grains(grainId).meanOrientation * sS;
 % extract ebsd data (which included the disp data) for the choosen grain
 ebsd = newEBSD(grains(grainId));
 ebsd = ebsd.gridify;
+
 
 %% slip ID
 clear IDoptions

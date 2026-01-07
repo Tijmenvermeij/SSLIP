@@ -72,8 +72,11 @@ if ~opt.plotSingle % in this case, all activities are plotted in one figure (usi
             if opt.plotTraces
                 ebsdTrace = ebsdID(round(size(ebsdID,1)/2),round(size(ebsdID,2)/2));
                 hold on
-                quiver(ebsdTrace,0.2*(ebsdID.xmax-ebsdID.xmin) * sSLocal(NoSs(i)).trace,'color','r');
-                quiver(ebsdTrace,0.2*(ebsdID.xmax-ebsdID.xmin) * sSLocal(NoSs(i)).b.normalize,'color','r');
+                %quiver(ebsdTrace,0.2*(ebsdID.xmax-ebsdID.xmin) * sSLocal(NoSs(i)).trace,'color','r');
+                quiver(ebsdTrace,0.2*(max(ebsdID.x,[],'all')-min(ebsdID.x,[],'all')) * sSLocal(NoSs(i)).trace,'color','r');
+                % quiver(ebsdTrace,0.2*(ebsdID.xmax-ebsdID.xmin) * sSLocal(NoSs(i)).b.normalize,'color','r');
+                quiver(ebsdTrace,0.2*(max(ebsdID.x,[],'all')-min(ebsdID.x,[],'all')) * sSLocal(NoSs(i)).b.normalize,'color','r');
+                
                 hold off
             end
         end

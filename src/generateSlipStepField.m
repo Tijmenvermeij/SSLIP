@@ -57,7 +57,7 @@ PerpTrace_dSys = sign(dot(PerpTrace_dSys,xvector)) * PerpTrace_dSys;
 dis = dot(PerpTrace_dSys,pos1);
 
 % convert distance to pixels
-disPix = dis ./ ebsd.dx;
+disPix = dis ./ ebsd.dPos;
 
 % create matrix which will be used for the final slip step field (will go
 % from -1 to 1, and will be multiplied by the slip direction...)

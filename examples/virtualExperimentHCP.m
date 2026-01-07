@@ -21,9 +21,11 @@ close all
 
 addpath(fullfile(pwd,'..','src'));
 
-setMTEXpref('xAxisDirection','east');
-setMTEXpref('zAxisDirection','intoplane');
+plotx2east
+plotzIntoPlane
 
+plottingConvention.default.east = xvector;
+plottingConvention.default.outOfScreen = -zvector; 
 %% define a crystal orientation and slip systems
 
 % HCP crystal symmetry
@@ -61,7 +63,7 @@ psizeEBSD = 0.03;
 
 % create EBSD variable
 [prop.x,prop.y] =  meshgrid(0:psizeEBSD:sizeArea(1),0:psizeEBSD:sizeArea(2));
-ebsd = EBSD(repmat(ori,[numel(prop.x),1]),ones(size(prop.x)),CS,prop);
+ebsd = EBSD(reshape(vector3d(prop.x,prop.y,zeros(size(prop.x))),numel(prop.x),1),repmat(ori,[numel(prop.x),1]),reshape(ones(size(prop.x)),numel(prop.x),1),CS,prop);
 ebsd = ebsd.gridify;
 
 %% Define the virtual slip system activities: system numbers, amplitudes, positions
@@ -258,9 +260,6 @@ V = ebsd.prop.U.y;
 
 %%% save the results in a matfile
 save(optOut.plotname,'ebsdID','sSLocal','optOut');
-
-
-
 
 % plot one activity field (system 3), just to demonstrate how data is
 % structured
