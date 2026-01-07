@@ -51,6 +51,9 @@ caxisMinMax = [0 0];
 SF = abs(SchmidFactor(sSLocal(NoSs),opt.stress));
 SF = round(SF*100)/100;
 
+% make sure slip directions are plotted above the activity fields
+sSLocal.b.z = sSLocal.b.z .* sign(sSLocal.b.z) * sign(plottingConvention.default.outOfScreen.z);
+
 % if logaritmic scale needs to be used for plotting, and positive constraint was not used, plot the absolute
 % value of slip activities!
 if opt.logscale && ~opt.posConstr
