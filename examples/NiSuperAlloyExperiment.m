@@ -66,6 +66,13 @@ sS = sS([12 3 7 5 11 2 8 4 10 1 9 6]);
 % get local slip systems
 sSLocal = grains(grainId).meanOrientation * sS;
 
+% assuming uniaxial tension in x-direction, reconfigure slip systems (by changing signs of b and n) to be
+% "positive". i.e., slip amplitudes will be positive under uniaxial
+% tension and Schmid factors will be positive
+loadDir = xvector;
+sSLocal.b = sign(cos(angle(loadDir,sSLocal.b))) .* sSLocal.b;
+sSLocal.n = sign(sSLocal.SchmidFactor(loadDir)) .* sSLocal.n;
+
 % extract ebsd data (which included the disp data) for the choosen grain
 ebsd = newEBSD(grains(grainId));
 ebsd = ebsd.gridify;
