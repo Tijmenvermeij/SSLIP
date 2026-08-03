@@ -51,6 +51,9 @@ caxisMinMax = [0 0];
 SF = abs(SchmidFactor(sSLocal(NoSs),opt.stress));
 SF = round(SF*100)/100;
 
+% make sure slip directions are plotted above the activity fields
+sSLocal.b.z = sSLocal.b.z .* sign(sSLocal.b.z) * sign(plottingConvention.default.outOfScreen.z);
+
 % if logaritmic scale needs to be used for plotting, and positive constraint was not used, plot the absolute
 % value of slip activities!
 if opt.logscale && ~opt.posConstr
@@ -96,6 +99,13 @@ if ~opt.plotSingle % in this case, all activities are plotted in one figure (usi
     end
     
     % set all colorbars to same scale, depending on defined plotting options
+    % remove inf/nan first
+    validData = slipIDcor(~isinf(slipIDcor));
+    validData = validData(~isnan(validData));
+    
+    med = median(validData, 'all');
+    mad_val = mad(validData, 1);
+    
     if opt.logscale
         caxisMinMax(1) = opt.logmin;
     elseif isfield(opt,'logmin')
@@ -103,13 +113,13 @@ if ~opt.plotSingle % in this case, all activities are plotted in one figure (usi
     elseif isfield(opt,'maxE')
         caxisMinMax(1) = -opt.maxE;
     else
-        caxisMinMax(1) = min(slipIDcor(~isinf(slipIDcor)),[],'all','omitnan');
+        caxisMinMax(1) = med - 5*mad_val;
     end
-
+    
     if isfield(opt,'maxE')
         caxisMinMax(2) = opt.maxE;
     else
-        caxisMinMax(2) = max(slipIDcor(~isinf(slipIDcor)),[],'all','omitnan');
+        caxisMinMax(2) = med + 5*mad_val;
     end
 
     % loop over all axes to adjust color scale and if needed logaritmic
@@ -141,12 +151,12 @@ if ~opt.plotSingle % in this case, all activities are plotted in one figure (usi
     
     % if necessary, save figure
     if opt.saveFig
-        saveFigure([opt.plotname, '.png'])
+        saveFigure([opt.plotname, '_SlipActivities.png'])
         if isfield(opt,'saveExt')
-            saveFigure([opt.plotname, opt.saveExt])
+            saveFigure([opt.plotname, '_SlipActivities', opt.saveExt])
         end
     end
-
+    f1_ba = f1;
     %%% second plot, if more than 24 systems. Same thing as before
     if length(NoSs) > maxFields
         % plot results
@@ -155,6 +165,7 @@ if ~opt.plotSingle % in this case, all activities are plotted in one figure (usi
             figure;
             f1=newMtexFigure;
         else
+            figure;
             f1=newMtexFigure('layout',opt.layout);
         end
         caxisMinMax = [0 0];
@@ -166,8 +177,8 @@ if ~opt.plotSingle % in this case, all activities are plotted in one figure (usi
                 if opt.plotTraces
                     ebsdTrace = ebsdID(round(size(ebsdID,1)/2),round(size(ebsdID,2)/2));
                     hold on
-                    quiver(ebsdTrace,0.2*(ebsdID.xmax-ebsdID.xmin) * sSLocal(NoSs(i)).trace,'color','r');
-                    quiver(ebsdTrace,0.2*(ebsdID.xmax-ebsdID.xmin) * sSLocal(NoSs(i)).b.normalize,'color','r');
+                    quiver(ebsdTrace,0.2*(max(ebsdID.x,[],'all')-min(ebsdID.x,[],'all')) * sSLocal(NoSs(i)).trace,'color','r');
+                    quiver(ebsdTrace,0.2*(max(ebsdID.x,[],'all')-min(ebsdID.x,[],'all')) * sSLocal(NoSs(i)).b.normalize,'color','r');
                     hold off
                 end
             end
@@ -221,9 +232,9 @@ if ~opt.plotSingle % in this case, all activities are plotted in one figure (usi
             f1.drawNow;
         end
         if opt.saveFig
-            saveFigure([opt.plotname, '24plus.png'])
+            saveFigure([opt.plotname, '_SlipActivities_24plus.png'])
             if isfield(opt,'saveExt')
-                saveFigure([opt.plotname, '24plus',opt.saveExt])
+                saveFigure([opt.plotname, '_SlipActivities_24plus',opt.saveExt])
             end
         end
     end

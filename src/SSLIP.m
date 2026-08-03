@@ -87,6 +87,13 @@ if ~isfield(opt,'NoSs')
     opt.NoSs = 1:length(sSLocal);
 end
 
+if isfield(opt,'posConstr')
+    if opt.posConstr == 1
+        % sSLocal.Schmid  
+        warning('Make sure that the slip systems are "configured" to have a positive SF amplitude in the assumed loading. This has to be done in the main script.')
+        
+    end
+end
 % Positive constraint: constrain the slip amplitudes to be positive. This
 % only works well if the slip systems are "configured" to have a positive
 % amplitude under a certain load (which is normally assured in the main
@@ -203,8 +210,31 @@ data.U = crs.f;
 data.V = crs.g;
 
 % calculate numerical gradients (displacement gradient tensor components)
-[Hxx, Hxy] = gradient(data.U,crs.pixelsize(1),crs.pixelsize(2));
-[Hyx, Hyy] = gradient(data.V,crs.pixelsize(1),crs.pixelsize(2));
+if isfield(opt, 'Hxx') && isfield(opt, 'Hxy') && isfield(opt, 'Hyx') && isfield(opt, 'Hyy')
+    fprintf('  [SSLIP Bypass] Utilizing pre-computed displacement gradient fields from opt structure.\n');
+    Hxx = opt.Hxx; Hxy = opt.Hxy;
+    Hyx = opt.Hyx; Hyy = opt.Hyy;
+    
+    % If raw grid gradients were passed, apply identical Gaussian filtering and superpixel coarse-graining
+    if isequal(size(Hxx), size(ebsd.x))
+        if opt.filterSize ~= 0
+            filt_opts.filt_std = opt.filterSize;
+            fH1 = filterDisplacements(Hxx, Hxy, filt_opts);
+            fH2 = filterDisplacements(Hyx, Hyy, filt_opts);
+            Hxx = fH1.U; Hxy = fH1.V;
+            Hyx = fH2.U; Hyy = fH2.V;
+        end
+        if opt.coarsegrain > 1
+            crsH1 = coarsegrainDisp(Hxx, Hxy, X(1,:), Y(:,1)', opt.coarsegrain);
+            crsH2 = coarsegrainDisp(Hyx, Hyy, X(1,:), Y(:,1)', opt.coarsegrain);
+            Hxx = crsH1.f; Hxy = crsH1.g;
+            Hyx = crsH2.f; Hyy = crsH2.g;
+        end
+    end
+else
+    [Hxx, Hxy] = gradient(data.U,crs.pixelsize(1),crs.pixelsize(2));
+    [Hyx, Hyy] = gradient(data.V,crs.pixelsize(1),crs.pixelsize(2));
+end
 
 
 % calc effective shear strain (for plotting purposes)
@@ -240,11 +270,20 @@ if opt.plotDefGrad
         cmin = 0;
     end
     
+    % remove inf/nan first
+    validData = Eeff(~isinf(Eeff));
+    validData = validData(~isnan(validData));
+    
+    med = median(validData, 'all');
+    mad_val = mad(validData, 1);
+    
     if isfield(opt,'maxE')
         cmax = opt.maxE;
     else
-        cmax = max(Eeff(:));
+        %cmax = max(Eeff(:));
+        cmax = med+5*mad_val;
     end
+
     caxis([cmin cmax])
     
     nextAxis
@@ -283,9 +322,16 @@ if opt.plotDefGrad
     end
     
     if opt.saveFig
-        saveFigure(['SSLIP_CGR_' num2str(opt.coarsegrain),'_Filt_' num2str(opt.filterSize), '_' plotName '_gradients.png'])
-        if isfield(opt,'saveExt')
-            saveFigure(['ssAnalysis_CoarseGr_' num2str(opt.coarsegrain),'_Filt_' num2str(opt.filterSize), '_' plotName '_disp_grad_tensor',opt.saveExt])
+        if isfield(opt, 'plotname') && ~isempty(opt.plotname)
+            saveFigure([opt.plotname, '_FilteredGradients.png'])
+            if isfield(opt,'saveExt')
+                saveFigure([opt.plotname, '_FilteredGradients', opt.saveExt])
+            end
+        else
+            saveFigure(['SSLIP_CGR_' num2str(opt.coarsegrain),'_Filt_' num2str(opt.filterSize), '_' plotName '_gradients.png'])
+            if isfield(opt,'saveExt')
+                saveFigure(['ssAnalysis_CoarseGr_' num2str(opt.coarsegrain),'_Filt_' num2str(opt.filterSize), '_' plotName '_disp_grad_tensor',opt.saveExt])
+            end
         end
     end
 end
@@ -298,21 +344,24 @@ fprintf(['Now running SSLIP, using method ',num2str(opt.IDMethod),'\n'])
 NoSs = opt.NoSs; 
 sSAnalysis = sSLocal(NoSs);
 
-% define plotting name
-opt.plotname = ['SSLIP_CGR_' num2str(opt.coarsegrain),'_Filt_' num2str(opt.filterSize), '_' plotName];
+% define plotting name only if not already specified by user
+custom_plotname = isfield(opt, 'plotname') && ~isempty(opt.plotname);
+if ~custom_plotname
+    opt.plotname = ['SSLIP_CGR_' num2str(opt.coarsegrain),'_Filt_' num2str(opt.filterSize), '_' plotName];
+end
 
 % select and perform SSLIP method
 if opt.IDMethod == 1 % combined & minimized slip ID
     [slipIDcor,residualEeff] = SSLIPConeprogConstrMinAbs(sSAnalysis,Hxx,Hxy,Hyx,Hyy,opt);
 
-    opt.plotname = [opt.plotname,'_constr_min'];
+    if ~custom_plotname, opt.plotname = [opt.plotname,'_constr_min']; end
 
 elseif opt.IDMethod == 2 % constrained slip ID
     [slipIDcor,residualEeff] = SSLIPConstr(sSAnalysis,Hxx,Hxy,Hyx,Hyy,opt);
-        opt.plotname = [opt.plotname,'_constr'];
+    if ~custom_plotname, opt.plotname = [opt.plotname,'_constr']; end
 
 elseif opt.IDMethod == 3 % single slip ID
-    opt.plotname = [opt.plotname,'_singleSlip'];
+    if ~custom_plotname, opt.plotname = [opt.plotname,'_singleSlip']; end
 
     % initialize matrices
     slipIDcor = zeros(length(NoSs),length(ebsdID));
@@ -321,6 +370,7 @@ elseif opt.IDMethod == 3 % single slip ID
     % don't use constraints at single slip ID (since it has no benefit
     % usually, and is much faster without it)
     if opt.posConstr == 1
+
         warning('option "posConstr" changed to 0, since it has no added value for single slip ID, and is much slower')
         opt.posConstr = 0;
     end
@@ -341,6 +391,7 @@ elseif opt.IDMethod == 3 % single slip ID
         % systems, based on factor of total effective shear (not used
         % often)
         threshResidual = Eeff(:) * opt.threshResidualFraction;
+        threshResidual(threshResidual<opt.threshResidual) = opt.threshResidual;
         goodData = residualEeff < threshResidual';
     end
 
@@ -369,7 +420,12 @@ end
 
 % plot SSLIP results
 if opt.plotSSLIP
-    plotSSLIP(slipIDcor,residualEeff,ebsdID,sSLocal,opt)
+    try
+        plotSSLIP(slipIDcor,residualEeff,ebsdID,sSLocal,opt);
+    catch ME
+        % Display a warning message containing the error identifier and message
+        warning('SSLIP Plotting Error (%s): %s', ME.identifier, ME.message);
+    end
 end
 
 ebsdID.prop.residualEeff = residualEeff;

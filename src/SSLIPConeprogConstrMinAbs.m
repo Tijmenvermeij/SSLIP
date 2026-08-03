@@ -88,6 +88,16 @@ WaitMessage = parfor_wait(numAnalysis,'ReportInterval',ceil(numAnalysis/20));
 parfor i=1:length(Hxx(:))
 % for i=1:length(Hxx(:))
 
+    % define threshold based on input
+    if isfield(options,'threshResidualFraction')
+        threshResidual = Eeff(i) * options.threshResidualFraction;
+        threshResidual(threshResidual<options.threshResidual) = options.threshResidual;
+    else
+        threshResidual = options.threshResidual;
+    end
+
+
+
     % do some checks to see if ID needs to be performed
     
     % skip NaNs
@@ -113,7 +123,7 @@ parfor i=1:length(Hxx(:))
             
             % define the constraints: || H^exp - H^their || < H_thresh
             % (see documentation of coneprog for clarifications)
-            socContraints = secondordercone(A,HExpi,gamma0,-1*options.threshResidual);
+            socContraints = secondordercone(A,HExpi,gamma0,-1*threshResidual);
             
             % run coneprog (see documentation of coneprog for clarifications)
             [x,f,flag] = coneprog(ones(size(gamma0)),socContraints,[],[],[],[],gamma0,[],coneprogoptions);
@@ -132,7 +142,7 @@ parfor i=1:length(Hxx(:))
             
             % define the constraints: || H^exp - H^their || < H_thresh
             % (see documentation of coneprog for clarifications)
-            socContraints = secondordercone(A2,HExpi,gamma0,-1*options.threshResidual);
+            socContraints = secondordercone(A2,HExpi,gamma0,-1*threshResidual);
             
             % run coneprog (see documentation of coneprog for clarifications)
             [x,f,flag] = coneprog(ones(size(gamma0)),socContraints,[],[],[],[],gamma0,[],coneprogoptions);
