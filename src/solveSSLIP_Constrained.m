@@ -1,4 +1,4 @@
-function [slipID,residualEeff] = SSLIPConstr(sS,Hxx,Hxy,Hyx,Hyy,options)
+function [slipIDcor,residualEeff] = solveSSLIP_Constrained(sS,Hxx,Hxy,Hyx,Hyy,options)
     
 %%% function to perform slip id analysis using def grad tensor component
 %%% solving. Only uses constraints
@@ -9,12 +9,7 @@ if nargin < 6
     options = struct;
 end
 
-%% set options if not given
-% normalize the theoretucal disp grad tensor towards the "in-plane
-% configuration"
-if ~isfield(options,'normalizeInplane')
-    options.normalizeInplane = 0;
-end
+
 
 % get theoretical disp grad tensor components from the slip systems:
 Hslip = sS.deformationTensor.matrix;
@@ -100,7 +95,7 @@ residualEeff = calcEffectiveE(residualH(1,:),residualH(2,:),residualH(3,:),resid
 % store solutions correctly
 residualEeff = residualEeff';
 
-slipID = x;
+slipIDcor = x;
 
 end
 

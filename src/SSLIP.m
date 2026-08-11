@@ -1,441 +1,96 @@
-function [ebsdID,opt] = SSLIP(ebsd,U,V,sSLocal,opt)
-%% Function to Perform SSLIP (Slip System based Identification of Local Plasticity)
-% For a list of slip systems (of a single crystal), with
-% input a displacement field, compute slip system activity fields.
+function [ebsdID, prepData, optOut] = SSLIP(ebsd, DeformationData, sSLocal, cfg)
+% SSLIP orchestrator for the SSLIP optimization process.
 %
-% Syntax
-%   [PLOTEBSD,opt] = SSLIP(ebsd,U,V,sSLocal,opt)
-% Input
-%   ebsd        - Mtex ebsd variable, used predominantly for the position
-%               grid
-%   U           - X-component of the displacement field (in um), same size as EBSD
-%   V           - Y-component of the displacement field (in um), same size as EBSD
-%   sSLocal     - list of slipSystems (MTex slipSystem objects), used for
-%               identification, should already be rotated into local
-%               crystal orientation
-%   opt         - struct with options, see the defaults below. 
-
-% Output
-%   ebsdID      - Updated Mtex ebsd variable, with slip system activity
-%   fields in "prop" field
-%   opt         - struct with options, updated with defaults where applicable. 
-
-% This function contains the SSLIP method as proposed in the paper 
-% "T. Vermeij et al., Automated identification of slip system activity
-% fields from digital image correlation data, Acta Mater. 243, 2022"
-% DOI: https://doi.org/10.1016/j.actamat.2022.118502
-% Please consider citing this paper when you use this code.
+% Inputs:
+%   ebsd            - MTEX EBSD object (used for grid / spatial context)
+%   DeformationData - struct containing either (U, V) or (Hxx, Hxy, Hyx, Hyy)
+%   sSLocal         - List of slip systems rotated to local crystal orientation
+%   cfg             - Nested configuration struct with the following optional fields:
+%                     cfg.preprocess.filterSize  (default: 1) - Gaussian filter std dev
+%                     cfg.preprocess.coarsegrain (default: 1) - Factor for coarse-graining grid
+%                     cfg.solver.IDMethod        (default: 1) - 1: Combined, 2: Constrained, 3: Single Slip
+%                     cfg.solver.minEeff         (default: 0.01) - Minimum effective strain to process a pixel
+%                     cfg.solver.threshResidual  (default: 0.01) - Maximum allowed residual error
+%                     cfg.solver.threshResidualFraction - (Optional) Dynamic residual threshold factor based on Eeff
+%                     cfg.solver.posConstr       (default: 0) - If 1, constrains slip activities to positive values
+%                     cfg.solver.enableRotation  (default: 0) - If 1, includes pseudo-slip system for rotation
+%                     cfg.solver.normalizeInplane (default: 0) - If 1, normalizes theoretical displacement gradient
+%                     cfg.solver.singleSlipPerPixel (default: 0) - (Method 3 only) Forces only 1 active system per pixel
+%                     cfg.solver.NoSs            (default: all) - Indices of slip systems to evaluate
 %
-%%%
-% Author: T. Vermeij
-% // Eindhoven University of Technology, Hoefnagels Group
-% Date: 30-11-2022
-% the latest version of this code can be found on
-% www.github.com/TijmenVermeij/SSLIP
-%
-% MTEX is required to use this code
+% Outputs:
+%   ebsdID          - The original MTEX EBSD object, enriched with new properties
+%                     in 'ebsdID.prop' containing the solver results:
+%                     .slipIDcor    : The solved slip activities (array)
+%                     .residualEeff : The residual error map of the fit
+%                     .rotationIDcor: (Optional) Solved rotation pseudo-slip activities
+%   prepData        - Struct containing the final preprocessed displacement/gradient 
+%                     fields used by the solver (e.g. .Hxx, .Hxy, .Hyx, .Hyy)
+%   optOut          - The exact 'cfg.solver' options that were actually executed, 
+%                     useful to pass down to downstream plotting functions.
 
+    if nargin < 4, cfg = struct; end
+    if ~isfield(cfg, 'preprocess'), cfg.preprocess = struct; end
+    if ~isfield(cfg, 'solver'), cfg.solver = struct; end
+    
+    % --- PREPROCESS DEFAULTS ---
+    if ~isfield(cfg.preprocess, 'filterSize'), cfg.preprocess.filterSize = 1; end                   % Gaussian blur size (pixels) applied to displacement field to reduce noise. Used in preprocessSSLIP.m
+    if ~isfield(cfg.preprocess, 'coarsegrain'), cfg.preprocess.coarsegrain = 1; end                 % Coarse graining factor (1=none, 2=2x2) for performance. Used in preprocessSSLIP.m
 
-%% Set default options, if needed
-
-%%%
-% set SSLIP method
-% 1: constrained and minimized slip ID (As used predominantly in the SSLIP paper. 
-% Contraint: || H^exp - H^their || < H_thresh. Minimzation of sum of absolute value of slip activities ) 
-
-% 2: constrained slip ID (only solve problem based on the || H^exp - H^their || < H_thresh  constraint, no minimization)
-
-
-% 3: single slip system ID (check for each pixel if a SINGLE system fits the activity. Used to "initialize" the SSLIP id om Figure 11 of the paper)
-% Recommended as trial for uncertain/complex situations.
-
-if ~isfield(opt,'IDMethod')
-    opt.IDMethod = 1;
-end
-%%%
-
-% threshold for residual
-if ~isfield(opt,'threshResidual')
-    opt.threshResidual = 0.01;
-end
-
-% set minimum effective strain for which SSLIP needs to be performed at a datapoint (i.e. skip
-% pixels with low strain). For improved speed
-if ~isfield(opt,'minEeff')
-    opt.minEeff = 0.01;
-end
-
-% gaussian blurring filter size, applied to displacement field before computing gradients and
-% performing SSLIP, to reduce noise (but also reduced spatial resolution)
-%
-% Defined in datapoints
-% use 0 for no filtering
-if ~isfield(opt,'filterSize')
-    opt.filterSize = 1;
-end
-
-% coarse graining setting, 1 = no coarse graining, 2 = 2x2 pixels 
-% coarsegrained into 1 pixel, ...
-% (for improved speed)
-if ~isfield(opt,'coarsegrain')
-    opt.coarsegrain = 1;
-end
-
-% slip "numbers" systems to be used for SSLIP (in order of the sSLocal variable),
-% default is all of them. 
-if ~isfield(opt,'NoSs')
-    opt.NoSs = 1:length(sSLocal);
-end
-
-if isfield(opt,'posConstr')
-    if opt.posConstr == 1
-        % sSLocal.Schmid  
-        warning('Make sure that the slip systems are "configured" to have a positive SF amplitude in the assumed loading. This has to be done in the main script.')
-        
-    end
-end
-% Positive constraint: constrain the slip amplitudes to be positive. This
-% only works well if the slip systems are "configured" to have a positive
-% amplitude under a certain load (which is normally assured in the main
-% script, assuming e.g. uniaxial tension).
-% How to "reconfigure" the slip system under complex loads is T.B.D.
-if ~isfield(opt,'posConstr')
-    opt.posConstr = 0;
-end
-
-
-
-%%%%
-%%%% plotting options
-%%%%
-
-
-% whether or not to plot the def grad tensor and eq strain field, before
-% performing slip ID
-if ~isfield(opt,'plotDefGrad')
-    opt.plotDefGrad = 0;
-end
-
-% colormap for strain and activity plots
-if ~isfield(opt,'cmap')
-    opt.cmap = viridis(256);
-end
-
-% layout for plotting multiple activity fields, e.g. [4 3] 
-% means 4 rows and 3 columns
-if ~isfield(opt,'layout')
-    opt.layout = [];
-end
-% 
-% % max strain/activity to plot
-% if ~isfield(opt,'maxE')
-%     opt.maxE = 0.1;
-% end
-
-% extra comments, maybe for plotting
-if ~isfield(opt,'comment')
-    opt.comment = '';
-end
-
-% casename, maybe for plotting
-if ~isfield(opt,'casename')
-    opt.casename = 'Nameless';
-end
-
-% use logscale for plotting?
-if ~isfield(opt,'logscale')
-    opt.logscale = 0;
-end
-
-% % min value for log plotting?
-% if ~isfield(opt,'logmin')
-%     opt.logmin = 0.01;
-% end
-
-if ~isfield(opt,'plotResidual')
-    opt.plotResidual = 1;
-end
-
-
-%% some checks
-% check if ebsd data is same size as U and V
-if size(ebsd) ~= size(U) | size(ebsd) ~= size(V)
-    error('ebsd data is not same as U and/or V')
-end
-
-% transpose sSLocal if needed 
-if length(sSLocal) > 1
-    if size(sSLocal,2) ~= 1
+    % --- SOLVER DEFAULTS ---
+    if ~isfield(cfg.solver, 'IDMethod'), cfg.solver.IDMethod = 1; end                               % 1=constrained L1-minimized, 2=constrained only, 3=single slip. Used to route to solveSSLIP_*.m
+    if ~isfield(cfg.solver, 'minEeff'), cfg.solver.minEeff = 0.01; end                              % Minimum effective strain required to evaluate a pixel (skips low strain). Used in solveSSLIP_*.m
+    if ~isfield(cfg.solver, 'threshResidual'), cfg.solver.threshResidual = 0.01; end                % L2-norm threshold for the optimization residual (||H_exp - H_theor|| < H_thresh). Used in solveSSLIP_*.m
+    if ~isfield(cfg.solver, 'threshResidualFraction'), cfg.solver.threshResidualFraction = 0; end   % (Optional) Dynamic residual threshold (Eeff * fraction), bounded below by threshResidual. Deactivate by omitting or setting to 0.
+    if ~isfield(cfg.solver, 'posConstr'), cfg.solver.posConstr = 0; end                             % 1=constrain slip amplitudes to be positive. Used in solveSSLIP_*.m
+    if ~isfield(cfg.solver, 'enableRotation'), cfg.solver.enableRotation = 0; end                   % 1=add rigid body rotation as a pseudo-slip system. Used in solveSSLIP_*.m
+    if ~isfield(cfg.solver, 'normalizeInplane'), cfg.solver.normalizeInplane = 0; end               % 1=normalize the 2D projected theoretical slip deformation gradients. Used in solveSSLIP_*.m
+    if ~isfield(cfg.solver, 'singleSlipPerPixel'), cfg.solver.singleSlipPerPixel = 0; end           % 1=only allow a single active slip system per pixel (forces ultimate sparsity). Used in solveSSLIP_Combined.m
+    % Ensure sSLocal is a column vector
+    if length(sSLocal) > 1 && size(sSLocal, 2) ~= 1
         sSLocal = transpose(sSLocal);
     end
-end
-
-%% prepare data for SSLIP
-% include U and V, as a vector field, in ebsd and make sure data is gridded
-ebsd.prop.U = vector3d(U,V,zeros(size(U)));
-ebsd = ebsd.gridify;
-
-% define plotting name
-plotName = [opt.casename '_' opt.comment '_' ];
-
-% extract position grid from ebsd variable
-X = ebsd.x;
-Y = ebsd.y;
-
-% apply filtering on displacement field
-if opt.filterSize ~= 0
-    % filtersize:
-    options.filt_std = opt.filterSize;
     
-    % replace 0 values in disp field by NaNs (some DIC codes export 0
-    % instead of NaN on non-correlated points)
-    ebsd.prop.U.x(ebsd.prop.U.x == 0) = NaN;
-    ebsd.prop.U.y(ebsd.prop.U.y == 0) = NaN;
-
-    % filter displacements
-    data = filterDisplacements(ebsd.prop.U.x,ebsd.prop.U.y,options);
-else
-    data.U = ebsd.prop.U.x;
-    data.V = ebsd.prop.U.y;
-end
-
-% coarse graining to increase speed
-crs = coarsegrainDisp(data.U,data.V,X(1,:),Y(:,1)',opt.coarsegrain);
-
-%create dummy EBDS for plotting
-ebsdID = dummyEBSDSimple(ebsd.orientations(1),crs.X,crs.Y);
-
-% store displacement field after coarsegraining
-data.U = crs.f;
-data.V = crs.g;
-
-% calculate numerical gradients (displacement gradient tensor components)
-if isfield(opt, 'Hxx') && isfield(opt, 'Hxy') && isfield(opt, 'Hyx') && isfield(opt, 'Hyy')
-    fprintf('  [SSLIP Bypass] Utilizing pre-computed displacement gradient fields from opt structure.\n');
-    Hxx = opt.Hxx; Hxy = opt.Hxy;
-    Hyx = opt.Hyx; Hyy = opt.Hyy;
+    if ~isfield(cfg.solver, 'NoSs'), cfg.solver.NoSs = 1:length(sSLocal); end               % Indices of slip systems to include in the solver. Used in runSSLIP.m
     
-    % If raw grid gradients were passed, apply identical Gaussian filtering and superpixel coarse-graining
-    if isequal(size(Hxx), size(ebsd.x))
-        if opt.filterSize ~= 0
-            filt_opts.filt_std = opt.filterSize;
-            fH1 = filterDisplacements(Hxx, Hxy, filt_opts);
-            fH2 = filterDisplacements(Hyx, Hyy, filt_opts);
-            Hxx = fH1.U; Hxy = fH1.V;
-            Hyx = fH2.U; Hyy = fH2.V;
-        end
-        if opt.coarsegrain > 1
-            crsH1 = coarsegrainDisp(Hxx, Hxy, X(1,:), Y(:,1)', opt.coarsegrain);
-            crsH2 = coarsegrainDisp(Hyx, Hyy, X(1,:), Y(:,1)', opt.coarsegrain);
-            Hxx = crsH1.f; Hxy = crsH1.g;
-            Hyx = crsH2.f; Hyy = crsH2.g;
-        end
-    end
-else
-    [Hxx, Hxy] = gradient(data.U,crs.pixelsize(1),crs.pixelsize(2));
-    [Hyx, Hyy] = gradient(data.V,crs.pixelsize(1),crs.pixelsize(2));
-end
-
-
-% calc effective shear strain (for plotting purposes)
-Eeff = calcEffectiveE(Hxx,Hxy,Hyx,Hyy);
-
-% store data in the coarsegrained ebsd variable
-ebsdID.prop.Eeff = Eeff;
-
-% store other fields in PLOTEBSD
-ebsdID.prop.U = data.U;
-ebsdID.prop.V = data.V;
-
-ebsdID.prop.Hxx = Hxx;
-ebsdID.prop.Hxy = Hxy;
-ebsdID.prop.Hyx = Hyx;
-ebsdID.prop.Hyy = Hyy;
-
-% plot some fields (just for visualization and to check filtering)
-if opt.plotDefGrad
-    figure;
-    f1=newMtexFigure('layout',[3 2]);
-    
-    plot(ebsdID,data.U,'micronbar','off'); title('U_x')
-    
-    nextAxis
-    
-    plot(ebsdID,Eeff,'micronbar','off'); title('E_{eff}');
-    
-    if opt.logscale
-        set(gca,'colorscale','log')
-        cmin = opt.logmin;
-    else
-        cmin = 0;
+    % Apply posConstr warning
+    if cfg.solver.posConstr == 1
+        warning('Make sure that the slip systems are configured to have a positive SF amplitude in the assumed loading. This can be done by running: sf_vals = sSLocal.SchmidFactor(stressState); sf_signs = sign(sf_vals); sf_signs(sf_signs == 0) = 1; sSLocal.b = sf_signs .* sSLocal.b;');
     end
     
-    % remove inf/nan first
-    validData = Eeff(~isinf(Eeff));
-    validData = validData(~isnan(validData));
+    % Subselect slip systems based on NoSs
+    sSLocal = sSLocal(cfg.solver.NoSs);
+
+    % --- 1. Preprocessing Pipeline ---
+    fprintf('  [SSLIP Pipeline] 1. Preprocessing data...\n');
+    [prepData, ebsdID] = preprocessSSLIP(ebsd, DeformationData, cfg.preprocess);
+
+    % --- 2. Mathematical Solver Pipeline ---
+    fprintf('  [SSLIP Pipeline] 2. Solving using IDMethod %d...\n', cfg.solver.IDMethod);
     
-    med = median(validData, 'all');
-    mad_val = mad(validData, 1);
-    
-    if isfield(opt,'maxE')
-        cmax = opt.maxE;
-    else
-        %cmax = max(Eeff(:));
-        cmax = med+5*mad_val;
+    switch cfg.solver.IDMethod
+        case 1
+            [slipIDcor, residualEeff] = solveSSLIP_Combined(sSLocal, prepData.Hxx, prepData.Hxy, prepData.Hyx, prepData.Hyy, cfg.solver);
+        case 2
+            [slipIDcor, residualEeff] = solveSSLIP_Constrained(sSLocal, prepData.Hxx, prepData.Hxy, prepData.Hyx, prepData.Hyy, cfg.solver);
+        case 3
+            [slipIDcor, residualEeff] = solveSSLIP_SingleSlip(sSLocal, prepData.Hxx, prepData.Hxy, prepData.Hyx, prepData.Hyy, cfg.solver);
+        otherwise
+            error('IDMethod %d is unknown. Expected 1, 2, or 3.', cfg.solver.IDMethod);
     end
 
-    caxis([cmin cmax])
+    % --- 3. EBSD Object Mapping Pipeline ---
+    fprintf('  [SSLIP Pipeline] 3. Mapping results back to MTEX EBSD object...\n');
     
-    nextAxis
-    plot(ebsdID,Hxx,'micronbar','off'); title('H_{11}'); caxis([-1*max([max(Hxx(:)),abs(min(Hxx(:)))]) max([max(Hxx(:)),abs(min(Hxx(:)))])]);
-    nextAxis
-    plot(ebsdID,Hxy,'micronbar','off'); title('H_{12}'); caxis([-1*max([max(Hxy(:)),abs(min(Hxy(:)))]) max([max(Hxy(:)),abs(min(Hxy(:)))])]);
-    nextAxis
-    plot(ebsdID,Hyx,'micronbar','off'); title('H_{21}'); caxis([-1*max([max(Hyx(:)),abs(min(Hyx(:)))]) max([max(Hyx(:)),abs(min(Hyx(:)))])]);
-    nextAxis
-    plot(ebsdID,Hyy,'micronbar','off'); title('H_{22}'); caxis([-1*max([max(Hyy(:)),abs(min(Hyy(:)))]) max([max(Hyy(:)),abs(min(Hyy(:)))])]);
-    mtexColorbar
+    ebsdID.prop.residualEeff = residualEeff';
     
-    f1.children(1).Colormap = jet(512);
-    f1.children(2).Colormap = opt.cmap;
-    f1.children(3).Colormap = jet(512);
-    f1.children(4).Colormap = jet(512);
-    f1.children(5).Colormap = jet(512);
-    f1.children(6).Colormap = jet(512);
-    
-    if isfield(opt,'DefGradLim')
-        f1.children(3).CLim = opt.DefGradLim ;
-        f1.children(4).CLim = opt.DefGradLim ;
-        f1.children(5).CLim = opt.DefGradLim ;
-        f1.children(6).CLim = opt.DefGradLim ;
+    % Safely extract the rotation pseudo-system if it was calculated
+    if isfield(cfg.solver, 'enableRotation') && cfg.solver.enableRotation
+        ebsdID.prop.rotationIDcor = slipIDcor(end, :)';
+        slipIDcor = slipIDcor(1:end-1, :);
     end
     
-    if isfield(opt,'fontSize')
-        set(findall(gcf,'-property','FontSize'),'FontSize',opt.fontSize)
-    end
-    
-    if isfield(opt,'sizeAdjust')
-        f1.figSizeFactor = opt.sizeAdjust;
-        f1.innerPlotSpacing = f1.innerPlotSpacing * opt.sizeAdjust;
-        
-        f1.drawNow;
-    end
-    
-    if opt.saveFig
-        if isfield(opt, 'plotname') && ~isempty(opt.plotname)
-            saveFigure([opt.plotname, '_FilteredGradients.png'])
-            if isfield(opt,'saveExt')
-                saveFigure([opt.plotname, '_FilteredGradients', opt.saveExt])
-            end
-        else
-            saveFigure(['SSLIP_CGR_' num2str(opt.coarsegrain),'_Filt_' num2str(opt.filterSize), '_' plotName '_gradients.png'])
-            if isfield(opt,'saveExt')
-                saveFigure(['ssAnalysis_CoarseGr_' num2str(opt.coarsegrain),'_Filt_' num2str(opt.filterSize), '_' plotName '_disp_grad_tensor',opt.saveExt])
-            end
-        end
-    end
-end
-
-
-%% perform SSLIP analysis
-fprintf(['Now running SSLIP, using method ',num2str(opt.IDMethod),'\n'])
-
-% take the required slip systems
-NoSs = opt.NoSs; 
-sSAnalysis = sSLocal(NoSs);
-
-% define plotting name only if not already specified by user
-custom_plotname = isfield(opt, 'plotname') && ~isempty(opt.plotname);
-if ~custom_plotname
-    opt.plotname = ['SSLIP_CGR_' num2str(opt.coarsegrain),'_Filt_' num2str(opt.filterSize), '_' plotName];
-end
-
-% select and perform SSLIP method
-if opt.IDMethod == 1 % combined & minimized slip ID
-    [slipIDcor,residualEeff] = SSLIPConeprogConstrMinAbs(sSAnalysis,Hxx,Hxy,Hyx,Hyy,opt);
-
-    if ~custom_plotname, opt.plotname = [opt.plotname,'_constr_min']; end
-
-elseif opt.IDMethod == 2 % constrained slip ID
-    [slipIDcor,residualEeff] = SSLIPConstr(sSAnalysis,Hxx,Hxy,Hyx,Hyy,opt);
-    if ~custom_plotname, opt.plotname = [opt.plotname,'_constr']; end
-
-elseif opt.IDMethod == 3 % single slip ID
-    if ~custom_plotname, opt.plotname = [opt.plotname,'_singleSlip']; end
-
-    % initialize matrices
-    slipIDcor = zeros(length(NoSs),length(ebsdID));
-    residualEeff = zeros(length(NoSs),length(ebsdID));
-
-    % don't use constraints at single slip ID (since it has no benefit
-    % usually, and is much faster without it)
-    if opt.posConstr == 1
-
-        warning('option "posConstr" changed to 0, since it has no added value for single slip ID, and is much slower')
-        opt.posConstr = 0;
-    end
-
-    % loop over single slip systemsm, and perform SSLIP (without
-    % minimization)
-    for j = 1:length(NoSs)
-        [slipIDcor(j,:),residualEeff(j,:)] = SSLIPConstr(sSAnalysis(j),Hxx,Hxy,Hyx,Hyy,opt);
-    end
-   
-    % use residual to "filter" the fields, only leaving activities with low
-    % residual
-    if ~isfield(opt,'threshResidualFraction')
-        % "clean" slipID by using theshold on residual, based on single systems
-        goodData = residualEeff < opt.threshResidual;
-    else
-        % "clean" slipID by using theshold on residual, based on single
-        % systems, based on factor of total effective shear (not used
-        % often)
-        threshResidual = Eeff(:) * opt.threshResidualFraction;
-        threshResidual(threshResidual<opt.threshResidual) = opt.threshResidual;
-        goodData = residualEeff < threshResidual';
-    end
-
-    %%% not used a lot:
-    % this option leaves only 1 slip system active at each datapoint, which has the lowest residual.
-    % Although this might make sense, noise can be detrimental here
-    if isfield(opt,'singleSlipPerPixel')
-        if opt.singleSlipPerPixel
-            [minThres,minThreshInd] = min(residualEeff,[],1);
-            slipIDcor = zeros(size(slipIDcor));
-            for j=1:length(ebsdID)
-                slipIDcor(minThreshInd(j),j) = slipIDcor(minThreshInd(j),j);
-            end
-        end
-    end
-    
-    
-    % make all slip activities, with residual abovet threshold, zero.
-    % (might be better to make it NaN, but not nice for plotting)
-    slipIDcor(~goodData) = 0;
-    
-else
-    error('IDMethod unknown (should be 1, 2, 3)')
-end
-
-
-% plot SSLIP results
-if opt.plotSSLIP
-    try
-        plotSSLIP(slipIDcor,residualEeff,ebsdID,sSLocal,opt);
-    catch ME
-        % Display a warning message containing the error identifier and message
-        warning('SSLIP Plotting Error (%s): %s', ME.identifier, ME.message);
-    end
-end
-
-ebsdID.prop.residualEeff = residualEeff;
-ebsdID.prop.slipIDcor = slipIDcor;
-
-% save(IDoptions.plotname,'slipIDcor','residualEeff','PLOTEBSD','IDoptions');
-
+    ebsdID.prop.slipIDcor = slipIDcor';
+    optOut = cfg.solver;
 
 end
-
-
-
-

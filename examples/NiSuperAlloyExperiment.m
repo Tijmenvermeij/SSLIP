@@ -211,7 +211,7 @@ mtexColorbar
 
 
 % %%% potentially, for replotting:
-% plotSSLIP(ebsdID.prop.slipIDcor,ebsdID.prop.residualEeff,ebsdID,sSLocal,optOut)
+% plotSSLIP(ebsdID,sSLocal,optOut)
 
 
 
