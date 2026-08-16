@@ -27,7 +27,7 @@ if ~isfield(opt, 'outputReport'),       opt.outputReport = 0; end         % Flag
 
 % Similarity Bundling & Activity Thresholding
 if ~isfield(opt, 'bundleSimilar'),      opt.bundleSimilar = 0; end        % Flag (0/1): Accumulate crystallographically and kinematically similar systems into common bundles
-if ~isfield(opt, 'bundleStrainThresh'), opt.bundleStrainThresh = 0.05; end% Maximum allowable difference (norm) between theoretical 2D deformation gradients to bundle systems together
+if ~isfield(opt, 'bundleStrainThresh'), opt.bundleStrainThresh = 0.2; end % Maximum allowable difference (norm) between theoretical 2D deformation gradients to bundle systems together
 if ~isfield(opt, 'activityThreshold'),  opt.activityThreshold = 0.01; end % Minimum threshold for a slip system's activity metric to be considered 'active' (otherwise it goes to leftovers)
 if ~isfield(opt, 'activityPercentile'), opt.activityPercentile = 85; end  % The statistical percentile of the pixel-wise field used to rank system activity (99 is highly sensitive to localized bands)
 if ~isfield(opt, 'enableRotation'),     opt.enableRotation = 0; end       % Flag (0/1): Should be 1 if solving included pseudo-slip rigid body rotations
@@ -47,15 +47,22 @@ sys_bx = zeros(1, num_total_sys);
 sys_by = zeros(1, num_total_sys);
 sys_bz = zeros(1, num_total_sys);
 sys_strings = cell(1, num_total_sys);
+if ~isempty(opt.ori)
+    sys_n_miller = Miller.nan([num_total_sys, 1], opt.ori.CS);
+    sys_b_miller = Miller.nan([num_total_sys, 1], opt.ori.CS);
+end
+
 
 for i = 1:num_total_sys
     obj = sSLocal(i);
     if ~isempty(opt.ori)
         sys_rep = (inv(opt.ori) * obj);
         sys_rep_n = round(sys_rep.n);
-        sys_rep_b = round(sys_rep.b, 'round3IndexDirection');
+        sys_rep_b = round(sys_rep.b, 'uvw');
         sys_nx(i) = sys_rep_n.h; sys_ny(i) = sys_rep_n.k; sys_nz(i) = sys_rep_n.l;
         sys_bx(i) = sys_rep_b.u; sys_by(i) = sys_rep_b.v; sys_bz(i) = sys_rep_b.w;
+        sys_n_miller(i) = sys_rep_n;
+        sys_b_miller(i) = sys_rep_b;
         sys_strings{i} = sprintf('n=(%d,%d,%d) b=[%d,%d,%d]', sys_nx(i), sys_ny(i), sys_nz(i), sys_bx(i), sys_by(i), sys_bz(i));
     else
         sys_rep = obj;
@@ -108,38 +115,65 @@ if opt.bundleSimilar
     for i = 1:length(sort_sys_idx)
         sys_i = sort_sys_idx(i);
         
-        % If activity is below threshold, it's leftover
+        % Check if the current system's activity is below the threshold.
+        % If so, it doesn't qualify for its own bundle and gets dumped into 'leftover'.
         if metric_vals(sys_i) < opt.activityThreshold
             leftover_idx = [leftover_idx, sys_i];
             continue;
         end
         
-        % Check similarity against existing bundles (Vectorized)
+        % We will attempt to match this system against all PREVIOUSLY created bundles.
+        % 'matched_bundle' will store the index of the bundle we match with (if any).
         matched_bundle = 0;
+        
+        % We can only bundle true crystallographic slip systems (sys_i <= length(sSLocal)).
+        % We cannot bundle 'rotation' pseudo-systems because they lack normals/burgers vectors.
         if ~isempty(rep_sys_list) && sys_i <= length(sSLocal)
-            % Filter out pseudo-slip systems from the comparison list
+            
+            % 'rep_sys_list' tracks the first (representative) system of every existing bundle.
+            % We must filter out any pseudo-slip systems (like rotation) from this list 
+            % before attempting crystallographic comparisons.
+            % 'valid_reps_mask' is a logical array mapping which bundles are valid crystallographic systems.
             valid_reps_mask = rep_sys_list <= length(sSLocal);
+            
+            % 'valid_reps' extracts only the system indices of valid crystallographic bundles.
+            % This prevents indexing out of bounds when calling sSLocal(valid_reps) below.
             valid_reps = rep_sys_list(valid_reps_mask);
             
             if ~isempty(valid_reps)
                 % Vectorized Condition A: Crystallographic Equivalence
-                obj_i = sSLocal(sys_i);
-                obj_reps = sSLocal(valid_reps);
-                ang_n = angle(obj_i.n, obj_reps.n);
-                ang_b = angle(obj_i.b, obj_reps.b);
-                cond_A = (ang_n(:)' < bundleAngleThresh) & (ang_b(:)' < bundleAngleThresh);
-                
+                % Can only be computed if a opt.ori is provided to cast b
+                % and n to crystal coordinates. Otherwise set to true.
+                if ~isempty(opt.ori)
+                    % The normal (n) and burgers (b) vectors must be parallel to the bundle representative.
+                    n_i = sys_n_miller(sys_i);
+                    b_i = sys_b_miller(sys_i);
+                    n_reps = sys_n_miller(valid_reps);
+                    b_reps = sys_b_miller(valid_reps);
+
+                    ang_n = angle(n_i, n_reps);
+                    ang_b = angle(b_i, b_reps);
+                    cond_A = (ang_n(:)' < bundleAngleThresh) & (ang_b(:)' < bundleAngleThresh);
+                else
+                    warning('plotSSLIP_DominantActivities:missingOrientationForClustering','No orientaiton provided. Clustering of slip system activities will be done solely on the similarity of projected def grads.')
+                    cond_A = true(size(valid_reps));
+                end
                 % Vectorized Condition B: 2D Projection Similarity
+                % The 2D projected strain tensor (Hxx, Hxy, Hyx, Hyy) must be very similar.
+                % norm1 tests for identical direction, norm2 tests for anti-parallel direction.
                 A_i = A_mat(:, sys_i);
                 A_reps = A_mat(:, valid_reps);
                 norm1 = sqrt(sum((A_reps - A_i).^2, 1));
                 norm2 = sqrt(sum((A_reps + A_i).^2, 1));
                 cond_B = (norm1 < opt.bundleStrainThresh) | (norm2 < opt.bundleStrainThresh);
                 
-                % Find first match
+                % Find the first valid bundle where BOTH conditions are met.
                 match_local_idx = find(cond_A & cond_B, 1);
+                
                 if ~isempty(match_local_idx)
-                    % Map back to original bundle index
+                    % Because we filtered out pseudo-systems, 'match_local_idx' points to the 
+                    % position in the *filtered* list. We use valid_bundle_indices to map this 
+                    % back to the true original index in the global 'bundles' cell array.
                     valid_bundle_indices = find(valid_reps_mask);
                     matched_bundle = valid_bundle_indices(match_local_idx);
                 end
@@ -147,13 +181,16 @@ if opt.bundleSimilar
         end
         
         if matched_bundle > 0
+            % We found a matching bundle! Add this system to it.
             bundles{matched_bundle}(end+1) = sys_i;
         else
-            % Limit number of top bundles, otherwise it falls to leftover
+            % No match was found, so we must create a NEW bundle.
+            % However, we only track up to 'num_top_systems' bundles.
             if length(bundles) < opt.num_top_systems
                 bundles{length(bundles)+1} = sys_i;
-                rep_sys_list(end+1) = sys_i;
+                rep_sys_list(end+1) = sys_i; % Register this system as the representative for the new bundle
             else
+                % If we hit our maximum number of allowed bundles, everything else falls to leftover.
                 leftover_idx = [leftover_idx, sys_i];
             end
         end
@@ -309,8 +346,6 @@ for t_i = 1:n_top
     end
     
     caxis(caxisMinMax);
-    mtexColorbar('title', '\gamma');
-    mtexColorMap(opt.cmap);
 end
 
 % Leftover activity

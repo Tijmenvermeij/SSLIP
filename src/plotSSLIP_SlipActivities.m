@@ -49,10 +49,6 @@ sys_bx = zeros(1, num_total_sys);
 sys_by = zeros(1, num_total_sys);
 sys_bz = zeros(1, num_total_sys);
 sys_strings = cell(1, num_total_sys);
-if ~isempty(opt.ori)
-    sys_n_miller = Miller.nan([num_total_sys, 1], opt.ori.CS);
-    sys_b_miller = Miller.nan([num_total_sys, 1], opt.ori.CS);
-end
 
 for i = 1:num_total_sys
     obj = sSLocal(i);
@@ -62,8 +58,6 @@ for i = 1:num_total_sys
         sys_rep_b = round(sys_rep.b, 'uvw');
         sys_nx(i) = sys_rep_n.h; sys_ny(i) = sys_rep_n.k; sys_nz(i) = sys_rep_n.l;
         sys_bx(i) = sys_rep_b.u; sys_by(i) = sys_rep_b.v; sys_bz(i) = sys_rep_b.w;
-        sys_n_miller(i) = sys_rep_n;
-        sys_b_miller(i) = sys_rep_b;
         sys_strings{i} = sprintf('n=(%d,%d,%d) b=[%d,%d,%d]', sys_nx(i), sys_ny(i), sys_nz(i), sys_bx(i), sys_by(i), sys_bz(i));
     else
         sys_rep = obj;
@@ -112,19 +106,12 @@ if opt.bundleSimilar
             valid_reps = rep_sys_list(valid_reps_mask);
             
             if ~isempty(valid_reps)
-                if ~isempty(opt.ori)
-                    n_i = sys_n_miller(sys_i);
-                    b_i = sys_b_miller(sys_i);
-                    n_reps = sys_n_miller(valid_reps);
-                    b_reps = sys_b_miller(valid_reps);
-
-                    ang_n = angle(n_i, n_reps);
-                    ang_b = angle(b_i, b_reps);
-                    cond_A = (ang_n(:)' < bundleAngleThresh) & (ang_b(:)' < bundleAngleThresh);
-                else
-                    warning('plotSSLIP_SlipActivities:missingOrientationForClustering','No orientation provided. Clustering of slip system activities will be done solely on the similarity of projected def grads.')
-                    cond_A = true(size(valid_reps));
-                end
+                % Vectorized Condition A: Crystallographic Equivalence
+                obj_i = sSLocal(sys_i);
+                obj_reps = sSLocal(valid_reps);
+                ang_n = angle(obj_i.n, obj_reps.n);
+                ang_b = angle(obj_i.b, obj_reps.b);
+                cond_A = (ang_n(:)' < bundleAngleThresh) & (ang_b(:)' < bundleAngleThresh);
                 
                 % Vectorized Condition B: 2D Projection Similarity
                 A_i = A_mat(:, sys_i);
