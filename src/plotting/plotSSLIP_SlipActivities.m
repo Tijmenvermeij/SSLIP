@@ -12,6 +12,7 @@ end
 % General Plotting Options
 if ~isfield(opt, 'cmap'),               opt.cmap = parula(256); try opt.cmap = viridis(256); catch, end; end % Colormap for activity fields
 if ~isfield(opt, 'clim_percentile'),    opt.clim_percentile = 99; end     % Percentile used to clip color axes (avoids extreme outliers dominating colorbar)
+if ~isfield(opt, 'custom_clim'),        opt.custom_clim = []; end         % Manual color axis limits [min max] (overrides percentile scaling if set)
 if ~isfield(opt, 'stress'),             opt.stress = stressTensor.uniaxial(xvector); end % Macroscopic stress tensor used for calculating Schmid Factors
 if ~isfield(opt, 'posConstr'),          opt.posConstr = 0; end            % Flag (0/1): If 1, activities are assumed strictly positive
 if ~isfield(opt, 'plotSingle'),         opt.plotSingle = 0; end           % Flag (0/1): If 1, plot and save each slip system activity as its own individual figure
@@ -279,28 +280,32 @@ if ~opt.plotSingle
     
     validData = slipIDcor(~isinf(slipIDcor) & ~isnan(slipIDcor));
     
-    if opt.logscale || isfield(opt,'logmin')
-        caxisMinMax(1) = opt.logmin;
-    elseif opt.posConstr == 1
-        caxisMinMax(1) = 0;
-    elseif isfield(opt,'maxE')
-        caxisMinMax(1) = -opt.maxE;
+    if ~isempty(opt.custom_clim)
+        caxisMinMax = opt.custom_clim;
     else
-        caxisMinMax(1) = prctile(validData, 100 - opt.clim_percentile);
-    end
-    
-    if isfield(opt,'maxE')
-        caxisMinMax(2) = opt.maxE;
-    else
-        caxisMinMax(2) = prctile(validData, opt.clim_percentile);
-    end
-    
-    if isempty(caxisMinMax(2)) || isnan(caxisMinMax(2)), caxisMinMax(2) = 0.05; end
-    if caxisMinMax(2) <= caxisMinMax(1)
-        if opt.logscale && caxisMinMax(1) > 0
-            caxisMinMax(2) = caxisMinMax(1) * 10;
+        if opt.logscale || isfield(opt,'logmin')
+            caxisMinMax(1) = opt.logmin;
+        elseif opt.posConstr == 1
+            caxisMinMax(1) = 0;
+        elseif isfield(opt,'maxE')
+            caxisMinMax(1) = -opt.maxE;
         else
-            caxisMinMax(2) = caxisMinMax(1) + 0.05;
+            caxisMinMax(1) = prctile(validData, 100 - opt.clim_percentile);
+        end
+        
+        if isfield(opt,'maxE')
+            caxisMinMax(2) = opt.maxE;
+        else
+            caxisMinMax(2) = prctile(validData, opt.clim_percentile);
+        end
+        
+        if isempty(caxisMinMax(2)) || isnan(caxisMinMax(2)), caxisMinMax(2) = 0.05; end
+        if caxisMinMax(2) <= caxisMinMax(1)
+            if opt.logscale && caxisMinMax(1) > 0
+                caxisMinMax(2) = caxisMinMax(1) * 10;
+            else
+                caxisMinMax(2) = caxisMinMax(1) + 0.05;
+            end
         end
     end
 
@@ -397,28 +402,33 @@ else
     
     validSingle = slipIDcor(~isinf(slipIDcor) & ~isnan(slipIDcor));
     
-    if opt.logscale || isfield(opt,'logmin')
-        cmin = opt.logmin;
-    elseif opt.posConstr == 1
-        cmin = 0;
-    elseif isfield(opt,'maxE')
-        cmin = -opt.maxE;
+    if ~isempty(opt.custom_clim)
+        cmin = opt.custom_clim(1);
+        cmax = opt.custom_clim(2);
     else
-        cmin = prctile(validSingle(:), 100 - opt.clim_percentile);
-    end
-    
-    if isfield(opt,'maxE')
-        cmax = opt.maxE;
-    else
-        cmax = prctile(validSingle(:), opt.clim_percentile);
-    end
-    
-    if isempty(cmax) || isnan(cmax), cmax = cmin + 0.05; end
-    if cmax <= cmin
-        if opt.logscale && cmin > 0
-            cmax = cmin * 10;
+        if opt.logscale || isfield(opt,'logmin')
+            cmin = opt.logmin;
+        elseif opt.posConstr == 1
+            cmin = 0;
+        elseif isfield(opt,'maxE')
+            cmin = -opt.maxE;
         else
-            cmax = cmin + 0.05;
+            cmin = prctile(validSingle(:), 100 - opt.clim_percentile);
+        end
+        
+        if isfield(opt,'maxE')
+            cmax = opt.maxE;
+        else
+            cmax = prctile(validSingle(:), opt.clim_percentile);
+        end
+        
+        if isempty(cmax) || isnan(cmax), cmax = cmin + 0.05; end
+        if cmax <= cmin
+            if opt.logscale && cmin > 0
+                cmax = cmin * 10;
+            else
+                cmax = cmin + 0.05;
+            end
         end
     end
     

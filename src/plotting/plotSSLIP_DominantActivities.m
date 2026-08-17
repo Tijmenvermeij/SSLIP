@@ -13,6 +13,7 @@ end
 % General Plotting Options
 if ~isfield(opt, 'cmap'),               opt.cmap = parula(256); try opt.cmap = viridis(256); catch, end; end % Colormap for activity fields
 if ~isfield(opt, 'clim_percentile'),    opt.clim_percentile = 99; end     % Percentile used to clip color axes (avoids extreme outliers dominating colorbar)
+if ~isfield(opt, 'custom_clim'),        opt.custom_clim = []; end         % Manual color axis limits [min max] (overrides percentile scaling if set)
 if ~isfield(opt, 'stress'),             opt.stress = stressTensor.uniaxial(xvector); end % Macroscopic stress tensor used for calculating Schmid Factors
 if ~isfield(opt, 'posConstr'),          opt.posConstr = 0; end            % Flag (0/1): If 1, activities are assumed strictly positive
 if ~isfield(opt, 'num_top_systems'),    opt.num_top_systems = 3; end      % Number of dominant slip systems (or bundles) to display before grouping remainder into 'Leftover'
@@ -225,14 +226,18 @@ for t_i = 1:n_top
 end
 
 % Determine common color limits
-all_fields_to_plot = [top_fields, leftover_activity];
-validData = all_fields_to_plot(~isinf(all_fields_to_plot) & ~isnan(all_fields_to_plot));
-if isempty(validData)
-    caxisMinMax = [0 0.1];
+if ~isempty(opt.custom_clim)
+    caxisMinMax = opt.custom_clim;
 else
-    caxisMinMax = [prctile(validData, 100 - opt.clim_percentile), prctile(validData, opt.clim_percentile)];
-    if caxisMinMax(1) < 0 && opt.posConstr, caxisMinMax(1) = 0; end
-    if caxisMinMax(2) <= caxisMinMax(1), caxisMinMax(2) = caxisMinMax(1) + 0.05; end
+    all_fields_to_plot = [top_fields, leftover_activity];
+    validData = all_fields_to_plot(~isinf(all_fields_to_plot) & ~isnan(all_fields_to_plot));
+    if isempty(validData)
+        caxisMinMax = [0 0.1];
+    else
+        caxisMinMax = [prctile(validData, 100 - opt.clim_percentile), prctile(validData, opt.clim_percentile)];
+        if caxisMinMax(1) < 0 && opt.posConstr, caxisMinMax(1) = 0; end
+        if caxisMinMax(2) <= caxisMinMax(1), caxisMinMax(2) = caxisMinMax(1) + 0.05; end
+    end
 end
 
 % Generate Output Report if requested
