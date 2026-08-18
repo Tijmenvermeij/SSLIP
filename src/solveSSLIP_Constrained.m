@@ -1,4 +1,4 @@
-function [slipIDcor,residualEeff] = solveSSLIP_Constrained(sS,Hxx,Hxy,Hyx,Hyy,options)
+function [slipIDcor,residualEeff] = solveSSLIP_Constrained(sS,Hxx,Hxy,Hyx,Hyy,cfg_solver)
     
 %%% function to perform slip id analysis using def grad tensor component
 %%% solving. Only uses constraints
@@ -6,7 +6,7 @@ function [slipIDcor,residualEeff] = solveSSLIP_Constrained(sS,Hxx,Hxy,Hyx,Hyy,op
 %%% Tijmen Vermeij / TUe / t.vermeij@tue.nl
 
 if nargin < 6
-    options = struct;
+    cfg_solver = struct;
 end
 
 
@@ -28,7 +28,7 @@ A = [Hslip11
     Hslip22];
 
 % if necessary, normalize inplane
-if options.normalizeInplane
+if cfg_solver.normalizeInplane
     A = A./sqrt(sum(A.^2,1));
 end
 
@@ -40,7 +40,7 @@ B = [Hxx(:)'
     Hyy(:)'];
 
 % use a least square solver or backslash operator for solving
-if options.posConstr
+if cfg_solver.posConstr
     %%% positive constraint of slip amplitudes, use lsqlin.
     
     % Convert A and B to a form that is suitable for "lsqlin" function (which can handle the positive constraint).

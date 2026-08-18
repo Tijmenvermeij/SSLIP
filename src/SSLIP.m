@@ -1,4 +1,4 @@
-function [ebsdID, prepData, optOut] = SSLIP(ebsd, DeformationData, sSLocal, cfg)
+function [ebsdID, prepData, optOut, sSLocal] = SSLIP(ebsd, DeformationData, sSLocal, cfg)
 % SSLIP orchestrator for the SSLIP optimization process.
 %
 % Inputs:
@@ -13,6 +13,7 @@ function [ebsdID, prepData, optOut] = SSLIP(ebsd, DeformationData, sSLocal, cfg)
 %                     cfg.solver.threshResidual  (default: 0.01) - Maximum allowed residual error
 %                     cfg.solver.threshResidualFraction - (Optional) Dynamic residual threshold factor based on Eeff
 %                     cfg.solver.posConstr       (default: 0) - If 1, constrains slip activities to positive values
+%                     cfg.solver.stress          (Optional) - Macroscopic stress tensor. Required if posConstr=1 to ensure physical validity.
 %                     cfg.solver.enableRotation  (default: 0) - If 1, includes pseudo-slip system for rotation
 %                     cfg.solver.normalizeInplane (default: 0) - If 1, normalizes theoretical displacement gradient
 %                     cfg.solver.singleSlipPerPixel (default: 0) - (Method 3 only) Forces only 1 active system per pixel
@@ -28,6 +29,9 @@ function [ebsdID, prepData, optOut] = SSLIP(ebsd, DeformationData, sSLocal, cfg)
 %                     fields used by the solver (e.g. .Hxx, .Hxy, .Hyx, .Hyy)
 %   optOut          - The exact 'cfg.solver' options that were actually executed, 
 %                     useful to pass down to downstream plotting functions.
+%   sSLocal         - The exact slip systems used by the solver. If posConstr=1 
+%                     and a stressTensor is provided, Burgers vectors are flipped 
+%                     to align with the physical stress direction.
 
     if nargin < 4, cfg = struct; end
     if ~isfield(cfg, 'preprocess'), cfg.preprocess = struct; end
@@ -53,9 +57,32 @@ function [ebsdID, prepData, optOut] = SSLIP(ebsd, DeformationData, sSLocal, cfg)
     
     if ~isfield(cfg.solver, 'NoSs'), cfg.solver.NoSs = 1:length(sSLocal); end               % Indices of slip systems to include in the solver. Used in runSSLIP.m
     
-    % Apply posConstr warning
+    % --- Apply alignment of slipSystem to the stress state if posConstr is used ---
     if cfg.solver.posConstr == 1
-        warning('Make sure that the slip systems are configured to have a positive SF amplitude in the assumed loading. This can be done by running: sf_vals = sSLocal.SchmidFactor(stressState); sf_signs = sign(sf_vals); sf_signs(sf_signs == 0) = 1; sSLocal.b = sf_signs .* sSLocal.b;');
+        if isfield(cfg.solver, 'stress') && ~isempty(cfg.solver.stress)
+            fprintf('  [SSLIP] Aligning slipSystems with stress state for the positive constraint...\n');
+            
+            if isa(cfg.solver.stress,'stressTensor')
+                sig = cfg.solver.stress;
+            elseif isa(cfg.solver.stress,'vector3d')
+                sig = stressTensor.uniaxial(cfg.solver.stress);
+            else
+                error('SSLIP:InvalidStressType', 'cfg.solver.stress must be a stressTensor or vector3d');
+            end
+            % Alignment using Schmid factor
+            % sf_vals = sSLocal.SchmidFactor(sig);
+            % sf_signs = sign(sf_vals);
+            % sf_signs(sf_signs == 0) = 1;
+            % sSLocal.b = sf_signs .* sSLocal.b;
+            
+            % Alignment using IW, works also for non-uniaxial stress states
+            IW = sig : transpose(sSLocal.deformationTensor);
+            IW_signs = transpose(sign(IW));
+            IW_signs(IW_signs == 0) = 1;
+            sSLocal.b = IW_signs .* sSLocal.b;
+        else
+            warning('SSLIP:MissingStress', 'posConstr=1 but cfg.solver.stress is not provided. Consider turning off posConstr or manually align the slip systems to have a positive Schmid Factor for the assumed loading. Example: sf_vals = sSLocal.SchmidFactor(stressState); sf_signs = sign(sf_vals); sf_signs(sf_signs == 0) = 1; sSLocal.b = sf_signs .* sSLocal.b;');
+        end
     end
     
     % Subselect slip systems based on NoSs

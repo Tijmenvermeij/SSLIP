@@ -19,6 +19,7 @@ crs = struct();
 
 % --- PROCESS DISPLACEMENTS ---
 if hasDisps
+    fprintf('Calculating displacement gradients from provided displacements...\n');
     U = DeformationData.U;
     V = DeformationData.V;
     
@@ -46,6 +47,7 @@ end
 
 % --- PROCESS GRADIENTS ---
 if hasGradients
+    fprintf('Using provided displacement gradients...\n');
     Hxx = DeformationData.Hxx; Hxy = DeformationData.Hxy;
     Hyx = DeformationData.Hyx; Hyy = DeformationData.Hyy;
     
