@@ -4,19 +4,6 @@ function [slipIDcor,residualEeff] = solveSSLIP_Combined(sS,Hxx,Hxy,Hyx,Hyy,cfg_s
 %%% solving. Uses constraints and minimized the sum of absolute values of
 %%% slip amplitudes
 
-% This function contains the SSLIP method as proposed in the paper 
-% "T. Vermeij et al., Automated identification of slip system activity
-% fields from digital image correlation data, Acta Mater. 243, 2022"
-% DOI: https://doi.org/10.1016/j.actamat.2022.118502
-% Please consider citing this paper when you use this code.
-
-% Date: 30-11-2022
-% the latest version of this code can be found on
-% www.github.com/TijmenVermeij/SSLIP
-
-%%% Tijmen Vermeij / TUe / t.vermeij@tue.nl
-
-
 %%
 if nargin < 6
     cfg_solver = struct;
@@ -173,7 +160,6 @@ parfor i=1:length(Hxx(:))
     
 end
 WaitMessage.Destroy
-end
 
 slipIDcor = gamma;
 if isfield(cfg_solver, 'enableRotation') && cfg_solver.enableRotation
