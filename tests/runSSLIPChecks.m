@@ -24,10 +24,12 @@ opt = struct('minEeff', .005, 'threshResidual', .01, ...
     'normalizeInplane', 0, 'posConstr', 0);
 hxy = [.02 .2 -.2 .001 NaN];
 z = zeros(size(hxy));
-[gFixed,rFixed] = SSLIPConeprogConstrMinAbs(sS,z,hxy,z,z,opt);
+[gFixed,rFixed,flagsFixed] = SSLIPConeprogConstrMinAbs(sS,z,hxy,z,z,opt);
 assert(max(abs(gFixed(1:3) - [.01 .19 -.19])) < 2e-6);
 assert(gFixed(4) == 0 && rFixed(4) == 0);
 assert(isnan(gFixed(5)) && isnan(rFixed(5)));
+assert(all(flagsFixed(1:3) == 1));
+assert(all(isnan(flagsFixed(4:5))));
 opt.threshResidualFraction = .1;
 [g,r] = SSLIPConeprogConstrMinAbs(sS,z,hxy,z,z,opt);
 expected = [.01, .2-.02/sqrt(2), -(.2-.02/sqrt(2))];
@@ -47,7 +49,9 @@ sZero = sS;
 sZero.CRSS = 0;
 [gCRSS,~] = SSLIPConeprogConstrMinAbs(sZero,z(1:2),hxy(1:2),z(1:2),z(1:2),opt);
 assert(max(abs(gCRSS-gPos)) < 2e-6);
-fprintf('PASS: coneprog fixed/fractional tolerance, floor, both signs, positivity, zero fraction, skipped/NaN pixels, CRSS independence.\n');
+[gInfeasible,rInfeasible,flagInfeasible] = SSLIPConeprogConstrMinAbs(sS,0,-.2,0,0,opt);
+assert(isnan(gInfeasible) && isnan(rInfeasible) && flagInfeasible < 0);
+fprintf('PASS: coneprog tolerances, signs, invalid pixels, CRSS independence, and per-pixel exit flags.\n');
 
 % Exercise the full single-slip call path with affine displacement fields.
 [X,Y] = meshgrid(0:3,0:3);
@@ -71,6 +75,18 @@ opt = rmfield(opt,'threshResidualFraction');
 [ebsdReject,~] = SSLIP(ebsd,.2*Y,.015*Y,sS,opt);
 assert(all(ebsdReject.prop.slipIDcor(:) == 0));
 fprintf('PASS: single-slip floor, relative threshold acceptance, fixed-threshold rejection.\n');
+
+% Selecting one system per pixel must retain its fitted amplitude.
+opt.singleSlipPerPixel = 1;
+opt.threshResidual = .2;
+sTwo = [slipSystem(xvector,yvector); slipSystem(yvector,xvector)];
+[ebsdFirst,~] = SSLIP(ebsd,.2*Y,.1*X,sTwo,opt);
+assert(max(abs(ebsdFirst.prop.slipIDcor(1,:)-.2)) < 1e-10);
+assert(all(ebsdFirst.prop.slipIDcor(2,:) == 0));
+[ebsdSecond,~] = SSLIP(ebsd,.1*Y,.2*X,sTwo,opt);
+assert(all(ebsdSecond.prop.slipIDcor(1,:) == 0));
+assert(max(abs(ebsdSecond.prop.slipIDcor(2,:)-.2)) < 1e-10);
+fprintf('PASS: singleSlipPerPixel preserves the best-fit activity.\n');
 
 % Check real residual plots, including degenerate data ranges.
 popt = struct('stress',stressTensor.uniaxial(xvector),'NoSs',1, ...

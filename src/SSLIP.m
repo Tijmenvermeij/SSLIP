@@ -17,7 +17,8 @@ function [ebsdID,opt] = SSLIP(ebsd,U,V,sSLocal,opt)
 
 % Output
 %   ebsdID      - Updated Mtex ebsd variable, with slip system activity
-%   fields in "prop" field
+%   fields in "prop" field. For method 1, prop.solverExitFlag contains each
+%   coneprog exit condition (NaN for pixels not solved).
 %   opt         - struct with options, updated with defaults where applicable. 
 
 % This function contains the SSLIP method as proposed in the paper 
@@ -304,7 +305,8 @@ opt.plotname = ['SSLIP_CGR_' num2str(opt.coarsegrain),'_Filt_' num2str(opt.filte
 
 % select and perform SSLIP method
 if opt.IDMethod == 1 % combined & minimized slip ID
-    [slipIDcor,residualEeff] = SSLIPConeprogConstrMinAbs(sSAnalysis,Hxx,Hxy,Hyx,Hyy,opt);
+    [slipIDcor,residualEeff,solverExitFlag] = SSLIPConeprogConstrMinAbs(sSAnalysis,Hxx,Hxy,Hyx,Hyy,opt);
+    ebsdID.prop.solverExitFlag = solverExitFlag;
 
     opt.plotname = [opt.plotname,'_constr_min'];
 
@@ -351,11 +353,12 @@ elseif opt.IDMethod == 3 % single slip ID
     % Although this might make sense, noise can be detrimental here
     if isfield(opt,'singleSlipPerPixel')
         if opt.singleSlipPerPixel
-            [minThres,minThreshInd] = min(residualEeff,[],1);
-            slipIDcor = zeros(size(slipIDcor));
+            [~,minThreshInd] = min(residualEeff,[],1);
+            singleSlipID = zeros(size(slipIDcor));
             for j=1:length(ebsdID)
-                slipIDcor(minThreshInd(j),j) = slipIDcor(minThreshInd(j),j);
+                singleSlipID(minThreshInd(j),j) = slipIDcor(minThreshInd(j),j);
             end
+            slipIDcor = singleSlipID;
         end
     end
     

@@ -1,8 +1,9 @@
-function [slipID,residualEeff,flag] = SSLIPConeprogConstrMinAbs(sS,Hxx,Hxy,Hyx,Hyy,options)
+function [slipID,residualEeff,flags] = SSLIPConeprogConstrMinAbs(sS,Hxx,Hxy,Hyx,Hyy,options)
     
 %%% Function to perform slip id analysis using def grad tensor component
 %%% solving. Uses constraints and minimized the sum of absolute values of
 %%% slip amplitudes
+% Third output: coneprog exit flags per pixel, NaN when no solve was attempted.
 
 % This function contains the SSLIP method as proposed in the paper 
 % "T. Vermeij et al., Automated identification of slip system activity
@@ -68,7 +69,8 @@ coneprogoptions = optimoptions('coneprog','Display','none');
 gamma = zeros(size(Hslip,3),size(HExp,3)); 
 res = zeros(size(HExp,3),1);
 fobj = zeros(size(HExp,3),1);
-flag = zeros(size(HExp,3),1);
+% No solver status for invalid or skipped pixels.
+flags = NaN(size(HExp,3),1);
 N = size(Hslip,3); % no of considered slip systems
 
 % calc eff strains, which will be used to determine on which points to
@@ -157,6 +159,9 @@ parfor i=1:length(Hxx(:))
             fobj(i) = NaN;
         end
         
+        % Retain the exit condition for every solved pixel.
+        flags(i) = flag;
+
         % calculate residual 
         res(i) = norm(A*gamma(:,i)-HExpi);
 
