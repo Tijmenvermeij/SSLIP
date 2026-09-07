@@ -54,7 +54,8 @@ if ~isfield(opt,'IDMethod')
 end
 %%%
 
-% threshold for residual
+% Absolute residual tolerance. If opt.threshResidualFraction is supplied,
+% methods 1 and 3 use max(threshResidual, Eeff * threshResidualFraction).
 if ~isfield(opt,'threshResidual')
     opt.threshResidual = 0.01;
 end
@@ -341,6 +342,7 @@ elseif opt.IDMethod == 3 % single slip ID
         % systems, based on factor of total effective shear (not used
         % often)
         threshResidual = Eeff(:) * opt.threshResidualFraction;
+        threshResidual(threshResidual<opt.threshResidual) = opt.threshResidual;
         goodData = residualEeff < threshResidual';
     end
 

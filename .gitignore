@@ -1,0 +1,4 @@
+*.asv
+
+# Local reference papers
+/literature/

@@ -17,6 +17,12 @@ if ~isfield(opt,'plotTraces')
     opt.plotTraces = 1;
 end
 
+% Trace and direction lengths as a fraction of the map width.
+% Set opt.traceScale = 0.5 for longer arrows.
+if ~isfield(opt,'traceScale')
+    opt.traceScale = 0.2;
+end
+
 % choose to plot empty fields to use same structure (immediately assign num
 % of systems)
 if ~isfield(opt,'plotEmptyFields')
@@ -33,6 +39,7 @@ maxFields = 24;
 % prepare for plotting
 
 NoSs = opt.NoSs;
+traceLength = opt.traceScale * (max(ebsdID.x,[],'all') - min(ebsdID.x,[],'all'));
 
 clear caxis
 if isempty(opt.layout)
@@ -75,10 +82,8 @@ if ~opt.plotSingle % in this case, all activities are plotted in one figure (usi
             if opt.plotTraces
                 ebsdTrace = ebsdID(round(size(ebsdID,1)/2),round(size(ebsdID,2)/2));
                 hold on
-                %quiver(ebsdTrace,0.2*(ebsdID.xmax-ebsdID.xmin) * sSLocal(NoSs(i)).trace,'color','r');
-                quiver(ebsdTrace,0.2*(max(ebsdID.x,[],'all')-min(ebsdID.x,[],'all')) * sSLocal(NoSs(i)).trace,'color','r');
-                % quiver(ebsdTrace,0.2*(ebsdID.xmax-ebsdID.xmin) * sSLocal(NoSs(i)).b.normalize,'color','r');
-                quiver(ebsdTrace,0.2*(max(ebsdID.x,[],'all')-min(ebsdID.x,[],'all')) * sSLocal(NoSs(i)).b.normalize,'color','r');
+                quiver(ebsdTrace,traceLength * sSLocal(NoSs(i)).trace,'color','r');
+                quiver(ebsdTrace,traceLength * sSLocal(NoSs(i)).b.normalize,'color','r');
                 
                 hold off
             end
@@ -169,8 +174,9 @@ if ~opt.plotSingle % in this case, all activities are plotted in one figure (usi
                 if opt.plotTraces
                     ebsdTrace = ebsdID(round(size(ebsdID,1)/2),round(size(ebsdID,2)/2));
                     hold on
-                    quiver(ebsdTrace,0.2*(ebsdID.xmax-ebsdID.xmin) * sSLocal(NoSs(i)).trace,'color','r');
-                    quiver(ebsdTrace,0.2*(ebsdID.xmax-ebsdID.xmin) * sSLocal(NoSs(i)).b.normalize,'color','r');
+                    quiver(ebsdTrace,traceLength * sSLocal(NoSs(i)).trace,'color','r');
+                    quiver(ebsdTrace,traceLength * sSLocal(NoSs(i)).b.normalize,'color','r');
+
                     hold off
                 end
             end
@@ -250,8 +256,8 @@ else
             if opt.plotTraces
                 ebsdTrace = ebsdID(round(size(ebsdID,1)/2),round(size(ebsdID,2)/2));
                 hold on
-                quiver(ebsdTrace,0.2*(ebsdID.xmax-ebsdID.xmin) * sSLocal(NoSs(i)).trace,'color','r','linewidth',5);
-                quiver(ebsdTrace,0.2*(ebsdID.xmax-ebsdID.xmin) * sSLocal(NoSs(i)).b.normalize,'color','r','linewidth',5);
+                quiver(ebsdTrace,traceLength * sSLocal(NoSs(i)).trace,'color','r','linewidth',5);
+                quiver(ebsdTrace,traceLength * sSLocal(NoSs(i)).b.normalize,'color','r','linewidth',5);
                 hold off
             end
         end
@@ -314,7 +320,6 @@ end
 if opt.plotResidual && (opt.IDMethod == 1 || opt.IDMethod == 2)
     figure;
     meanResidual = mean(residualEeff(:),'omitnan');
-    stdResidual = std(residualEeff(:),'omitnan');
     plot(ebsdID, residualEeff,'micronbar','off' ); title(['residual Eeff,mean=',num2str(meanResidual)]);
     if isfield(opt,'residualScaleSame')
         caxis(caxisMinMax)
@@ -322,7 +327,12 @@ if opt.plotResidual && (opt.IDMethod == 1 || opt.IDMethod == 2)
             set(gca,'colorscale','log')
         end
     else
-        caxis([0 2*stdResidual])
+        % Show the full finite residual range, including constant residuals.
+        maxResidual = max(residualEeff(isfinite(residualEeff)));
+        if isempty(maxResidual) || maxResidual <= 0
+            maxResidual = 1; % Non-degenerate limits for zero or missing data.
+        end
+        caxis([0 maxResidual])
     end
     mtexColorMap(opt.cmap)
     mtexColorbar
