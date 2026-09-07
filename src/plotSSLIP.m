@@ -318,30 +318,9 @@ end
 
 % if required, plot residual
 if opt.plotResidual && (opt.IDMethod == 1 || opt.IDMethod == 2)
-    figure;
-    meanResidual = mean(residualEeff(:),'omitnan');
-    plot(ebsdID, residualEeff,'micronbar','off' ); title(['residual Eeff,mean=',num2str(meanResidual)]);
-    if isfield(opt,'residualScaleSame')
-        caxis(caxisMinMax)
-        if opt.logscale
-            set(gca,'colorscale','log')
-        end
-    else
-        % Show the full finite residual range, including constant residuals.
-        maxResidual = max(residualEeff(isfinite(residualEeff)));
-        if isempty(maxResidual) || maxResidual <= 0
-            maxResidual = 1; % Non-degenerate limits for zero or missing data.
-        end
-        caxis([0 maxResidual])
-    end
-    mtexColorMap(opt.cmap)
-    mtexColorbar
-    if opt.saveFig
-        saveFigure([opt.plotname, '_Residual.png'])
-        if isfield(opt,'saveExt')
-            saveFigure([opt.plotname, '_Residual',opt.saveExt])
-        end
-    end
+    ebsdID.prop.residualEeff = residualEeff;
+    opt.caxisMinMax = caxisMinMax;
+    plotSSLIP_Residual(ebsdID,opt);
 end
 
 end

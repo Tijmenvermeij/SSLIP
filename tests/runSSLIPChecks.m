@@ -245,6 +245,65 @@ for k=1:numel(residualCases)
 end
 fprintf('PASS: residual plots with constant, zero, missing, and nonfinite values.\n');
 
+% The residual helper must receive the activity limits and the explicit
+% residual argument, even if the EBSD object contains an older residual.
+staleResidual = ebsd;
+staleResidual.prop.residualEeff = ones(16,1)*9;
+popt.residualScaleSame = 1;
+popt.logscale = 1;
+popt.logmin = .01;
+plotSSLIP(linspace(.01,.2,16),ones(16,1)*.03,staleResidual,sS,popt);
+assert(isequal(gca().CLim,[.01 1]) && strcmp(gca().ColorScale,'log'));
+assert(strcmp(gca().Title.String,'residual Eeff,mean=0.03'));
+close all;
+popt = rmfield(popt,{'residualScaleSame','logmin'});
+popt.logscale = 0;
+
+% The separated plotters can use saved fields without running a solver.
+% Check custom deformation limits and the existing export filenames.
+plotDirectory = tempname;
+mkdir(plotDirectory);
+oldDirectory = pwd;
+directoryCleanup = onCleanup(@() cd(oldDirectory));
+cd(plotDirectory);
+dopt = struct('cmap',parula(256),'logscale',1,'logmin',.001, ...
+    'maxE',.1,'DefGradLim',[-.07 .07],'saveFig',1,'saveExt','.jpg', ...
+    'coarsegrain',1,'filterSize',0,'casename','check','comment','');
+plotSSLIP_DeformationFields(preparedGrid,dopt);
+axesList = findall(gcf,'Type','axes');
+effectiveAxis = axesList(arrayfun(@(a) strcmp(a.Title.String,'E_{eff}'),axesList));
+gradientAxes = axesList(arrayfun(@(a) startsWith(a.Title.String,'H_{'),axesList));
+assert(isscalar(effectiveAxis) && isequal(effectiveAxis.CLim,[.001 .1]));
+assert(strcmp(effectiveAxis.ColorScale,'log') && numel(gradientAxes)==4);
+assert(all(arrayfun(@(a) isequal(a.CLim,[-.07 .07]),gradientAxes)));
+assert(isfile('SSLIP_CGR_1_Filt_0_check___gradients.png'));
+assert(isfile('ssAnalysis_CoarseGr_1_Filt_0_check___disp_grad_tensor.jpg'));
+close all;
+
+ropt = struct('cmap',parula(256),'saveFig',1,'saveExt','.jpg','plotname','check');
+storedResult = ebsdRotation;
+storedResult.prop.residualEeff = ones(16,1)*.02;
+plotSSLIP_Residual(storedResult,ropt);
+assert(isequal(gca().CLim,[0 .02]));
+assert(isfile('check_Residual.png') && isfile('check_Residual.jpg'));
+close all;
+storedResult.prop.rotationIDcor = ones(16,1)*(-.03);
+storedResult.prop.rotationIDcor(end) = NaN;
+originalRotation = storedResult.prop.rotationIDcor;
+rotationFigure = plotSSLIP_Rotation(storedResult,ropt);
+assert(isgraphics(rotationFigure,'figure') && isequal(rotationFigure,gcf));
+assert(max(abs(gca().CLim-[-.03 .03]/degree)) < 1e-12);
+assert(isequal(gca().Colormap,blue2redColorMap));
+assert(strcmp(gca().Title.String,'Inferred rotation correction'));
+assert(isequaln(storedResult.prop.rotationIDcor,originalRotation));
+assert(isfile('check_rotation.png'));
+close all;
+assert(isempty(plotSSLIP_Rotation(ebsd,ropt)));
+assert(isempty(findall(groot,'Type','figure')));
+cd(oldDirectory);
+clear directoryCleanup;
+fprintf('PASS: separate deformation, residual, and rotation plots, scales, units, and exports.\n');
+
 % Plot the selected physical system from a rotation-corrected fit. The
 % original system index is valid because SSLIP retains the full input list.
 popt.NoSs = 2;

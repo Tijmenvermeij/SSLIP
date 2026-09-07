@@ -281,8 +281,53 @@ grid, shuffled EBSD points, coarse-graining, zero/missing displacement masks,
 and an input mismatch in only one dimension. These use square pixels; support
 for unequal pixel spacings under MTEX 6.1 is not established by this checkpoint.
 
-The next checkpoint will separate the small plotting routines using Philipp's
-functions while retaining the current figures and activity interpretation.
+## Reorganization checkpoint 2: small plotting routines
+
+This checkpoint adapts Philipp's `plotSSLIP_DeformationFields`,
+`plotSSLIP_Residual`, and `plotSSLIP_Rotation` from `d3ee1a5` into the existing
+`src/` folder. `SSLIP` calls the deformation plotter, `plotSSLIP` calls the
+residual plotter, and both examples call the rotation plotter. They can also
+be called directly using the saved `ebsdID` and `optOut` variables. The rotation
+plotter returns a figure handle for export, or an empty handle when no rotation
+field is present.
+
+The adaptation preserves the figures from checkpoint 1 (`c4d1134`):
+
+- Deformation plots retain their layout, linear/logarithmic effective-strain
+  scale, gradient limits, colormaps, font/size settings, and export filenames.
+- Residual plots retain the full finite residual range and the non-degenerate
+  fallback for zero or missing data. When `residualScaleSame` is supplied,
+  `plotSSLIP` explicitly passes the activity limits as `opt.caxisMinMax`.
+  A direct call with this option also requires those limits. The explicit
+  residual argument remains authoritative even if the EBSD object already
+  contains a different residual field.
+- Rotation plots retain the examples' degree units, blue-to-red colormap,
+  symmetric finite-maximum limits, labels, and lowercase `_rotation.png` name.
+  Stored angles remain in radians, including zero values for skipped pixels.
+
+No activity grouping, ranking, percentile clipping, context overlays, folder
+moves, or solver changes are included. These functions are adaptations of
+Philipp's separation using the existing plotting behavior; his contribution
+is identified in source comments and the commit's `Co-authored-by` trailer.
+
+| Check against checkpoint 1 | MTEX 6.1.0 | MTEX 7.0.0 |
+| --- | --- | --- |
+| Focused checks, including standalone plotters and exports | Passed | Passed |
+| Ni and HCP numerical results, rotation off and on | Exactly unchanged | Exactly unchanged |
+| Ni deformation, residual, and rotation figures | Pixel-identical | Pixel-identical |
+| HCP deformation, residual, and rotation figures | Pixel-identical | Pixel-identical |
+
+Numerical comparisons include all saved arrays and returned options, with
+zeros and NaNs included, against each version's own baseline. The 12 figure
+comparisons use saved rotation-enabled example results. They compare rendered
+PNG pixels as well as titles, color scales and limits, colormaps, axis positions,
+patch values/geometry, and colorbar labels/ticks. Representative regenerated
+Ni deformation and rotation figures were also inspected visually.
+
+Focused checks additionally exercise custom deformation limits, logarithmic
+shared residual scales, stale stored residuals, unchanged radians after plotting,
+missing rotation fields, and the existing PNG/JPEG export names. Both MATLAB
+sessions exited successfully and used `-noFigureWindows -nosplash`.
 
 ## Reproducing the checks
 

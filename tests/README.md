@@ -32,6 +32,12 @@ Preprocessing checks cover affine gradients on a shifted rectangular grid, shuff
 EBSD input, coarse-graining, zero and missing displacement values with filtering
 off and on, and rejection of mismatched displacement dimensions.
 
+Separate plotting checks cover custom deformation limits, logarithmic shared
+residual scales, use of the supplied residual when stored data differs, rotation
+display in degrees without changing the saved radians, missing rotation data,
+and the existing PNG and additional JPEG export names. These use temporary
+output folders and restore the working directory afterwards.
+
 The same checks also exercise Philipp's optional rotation extension: positive
 and negative rotation with either slip-sign constraint, radians after in-plane
 normalization, pure slip, pure rotation, mixtures, a noisy mixture, skipped and

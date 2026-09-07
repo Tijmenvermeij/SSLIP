@@ -27,7 +27,8 @@ Please report any bugs you encounter. Instructions for the [regression checks an
 **SSLIP** has been conceptualized and created by [**Tijmen Vermeij**](https://www.tue.nl/en/research/researchers/tijmen-vermeij/), under supervision of **Johan Hoefnagels**, **Ron Peerlings** and **Marc Geers**.
 
 **Philipp ([PhilKro](https://github.com/PhilKro))** contributed the single-slip
-selection correction, explicit rotation support, and preprocessing separation adopted from
+selection correction, explicit rotation support, and separation of preprocessing
+and the small plotting routines adopted from
 [PR #2](https://github.com/Tijmenvermeij/SSLIP/pull/2). The adapted commits retain
 his co-author credit; the [integration notes](docs/mtex7-and-pr2-review.md)
 identify his original commits and the corrections made during integration.
@@ -52,6 +53,22 @@ rotation should also be fitted. This uses the small-angle approximation from
 It retains the PR's L1 penalty on rotation and does not implement the full
 Radon and slip-pair selection workflow from that paper. See the
 [formulation and normalization details](docs/mtex7-and-pr2-review.md#selected-rotation-integration).
+
+# Replot saved results
+
+The `ebsdID` and `optOut` variables saved by the examples can now be used to
+redraw individual figures without rerunning identification:
+
+```matlab
+plotSSLIP_DeformationFields(ebsdID,optOut);
+plotSSLIP_Residual(ebsdID,optOut);
+rotationFigure = plotSSLIP_Rotation(ebsdID,optOut);
+```
+
+These retain the existing figure scales and export filenames. Rotation is
+displayed in degrees; the stored values stay in radians. If no rotation field
+is present, the rotation plotter returns an empty handle and creates no figure.
+The existing `plotSSLIP` call still draws the activity maps and optional residual.
 
 # How to cite SSLIP
 If you have applied the SSLIP analyses to your research, please cite this open-access paper as your reference:

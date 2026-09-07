@@ -215,20 +215,7 @@ save(optOut.plotname,'ebsdID','sSLocal','optOut');
 
 % Rotation is stored separately from slip activity, in radians.
 if optOut.enableRotation
-    figure;
-    rotationDegrees = ebsdID.prop.rotationIDcor / degree;
-    plot(ebsdID,rotationDegrees,'micronbar','off');
-    title('Inferred rotation correction');
-    mtexColorMap(blue2redColorMap);
-    rotationLimit = max(abs(rotationDegrees),[],'omitnan');
-    if isfinite(rotationLimit) && rotationLimit > 0
-        clim([-rotationLimit rotationLimit]);
-    end
-    mtexColorbar('title','Rotation [deg]');
-    rotationFigure = gcf;
-    if optOut.saveFig
-        saveFigure([optOut.plotname '_rotation.png']);
-    end
+    rotationFigure = plotSSLIP_Rotation(ebsdID,optOut);
 end
 
 
@@ -245,6 +232,9 @@ mtexColorbar
 
 % %%% potentially, for replotting:
 % plotSSLIP(ebsdID.prop.slipIDcor,ebsdID.prop.residualEeff,ebsdID,sSLocal,optOut)
+% plotSSLIP_DeformationFields(ebsdID,optOut);
+% plotSSLIP_Residual(ebsdID,optOut);
+% plotSSLIP_Rotation(ebsdID,optOut);
 
 
 
