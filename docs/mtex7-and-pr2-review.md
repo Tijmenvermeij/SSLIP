@@ -157,6 +157,30 @@ mixture, selected-system output and plotting, skipped/invalid pixels, and
 unsupported-method errors. Residual assertions allow coneprog's actual default
 constraint tolerance (1e-6); its fitting tolerances were not changed.
 
+### Supplied examples
+
+Both existing example scripts now explicitly expose
+`IDoptions.enableRotation = 0`. Setting it to 1 fits the rotation present in
+their data, adds a separate rotation plot in degrees, and adds `_rotation` to
+the saved result name. The stored `rotationIDcor` remains in radians. Default
+slip plots and zero activity at skipped low-strain pixels retain their existing
+behavior; the separate comparison figures made during review are not part of
+the example plotting code.
+
+The HCP example's optional batch 2 previously claimed that `[3 14 24]` were its
+active systems, although the generated steps use `[3 3 7 19]`. That subset now
+comes directly from `unique(systems,'stable')`, giving `[3 7 19]`. The default
+24-system batch is unchanged. The Ni example's grain-number filename fix was
+already included in the earlier compatibility checkpoint.
+
+Both examples were run with rotation off and on under MTEX 6.1.0 and official
+7.0.0. The corrected HCP subset was also run with rotation enabled on both
+versions. Rotation field dimensions, physical channel counts, distinct output
+names, and plot exports passed. Representative Ni and HCP rotation plots were
+visually checked. The saved default numeric results exactly match the previous
+same-version checkpoints, including solver flags and NaNs. These checks used
+`-noFigureWindows -nosplash`; no new library functions were introduced.
+
 ## Review of the original PR #2
 
 Reviewed [PR #2](https://github.com/Tijmenvermeij/SSLIP/pull/2),

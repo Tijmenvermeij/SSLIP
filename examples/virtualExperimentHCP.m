@@ -150,7 +150,7 @@ close all
 % idName = name used to same figures (if IDoptions.saveFig == 1)
 % idName = name used to same figures
 idName{1} = 'HCP_24'; NoSs_batch{1} = 1:24;
-idName{2} = 'HCP_3_14_24'; NoSs_batch{2} = [3 14 24]; % the systems which are actually active...
+idName{2} = 'HCP_active'; NoSs_batch{2} = unique(systems,'stable')'; % [3 7 19], matching the generated slip steps
 
 % choose which "case/batch" to run
 Ss_batch = [1];
@@ -170,6 +170,11 @@ Ss_batch = [1];
 % 3: single slip system ID (check for each pixel if a SINGLE system fits the activity. Used to "initialize" the SSLIP id om Figure 11 of the paper)
 % Recommended as trial for uncertain/complex situations.
 IDoptions.IDMethod = 1;
+
+% Optional rotation correction from Philipp's PR (method 1 only).
+% This fits rotation in the input data; it does not add rotation to the data.
+% Set minEeff = 0 as well if pure-rotation pixels should be fitted.
+IDoptions.enableRotation = 0; % set to 1 to enable
 %%%
 
 % filtering and coarse graining options (performed on displacement fields)
@@ -257,11 +262,34 @@ IDoptions.NoSs = NoSs_batch{Ss_batch};
 U = ebsd.prop.U.x;
 V = ebsd.prop.U.y;
 
+% Keep the saved rotation-enabled results separate from the default run.
+if IDoptions.enableRotation
+    IDoptions.casename = [IDoptions.casename '_rotation'];
+end
+
 %%% perform SSLIP analysis
 [ebsdID,optOut] = SSLIP(ebsd,U,V,sSLocal,IDoptions);
 
 %%% save the results in a matfile
 save(optOut.plotname,'ebsdID','sSLocal','optOut');
+
+% Rotation is stored separately from slip activity, in radians.
+if optOut.enableRotation
+    figure;
+    rotationDegrees = ebsdID.prop.rotationIDcor / degree;
+    plot(ebsdID,rotationDegrees,'micronbar','off');
+    title('Inferred rotation correction');
+    mtexColorMap(blue2redColorMap);
+    rotationLimit = max(abs(rotationDegrees),[],'omitnan');
+    if isfinite(rotationLimit) && rotationLimit > 0
+        clim([-rotationLimit rotationLimit]);
+    end
+    mtexColorbar('title','Rotation [deg]');
+    rotationFigure = gcf;
+    if optOut.saveFig
+        saveFigure([optOut.plotname '_rotation.png']);
+    end
+end
 
 % plot one activity field (system 3), just to demonstrate how data is
 % structured

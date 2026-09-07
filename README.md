@@ -40,6 +40,12 @@ separately in `ebsdID.prop.rotationIDcor`, in radians, while slip activities kee
 their existing shape and system order. Rotation remains signed even with
 `opt.posConstr = 1`. Methods 2 and 3 reject this option.
 
+Both supplied examples expose this as `IDoptions.enableRotation` (default 0).
+Set it to 1 to add a rotation plot in degrees; the saved numerical angle remains
+in radians. Their rotation-enabled output names include `_rotation` to keep
+them separate from the default results. In the virtual HCP example, batch 2
+selects the actual generated slip systems `[3 7 19]`.
+
 The existing `minEeff` cutoff still applies; use `opt.minEeff = 0` when pure
 rotation should also be fitted. This uses the small-angle approximation from
 [Vermeij et al., Strain (2025), Eq. (11)](https://doi.org/10.1111/str.70000).

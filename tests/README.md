@@ -48,6 +48,18 @@ The source checkout is not used for generated results.
 runSSLIPExamples('/path/to/results/mtex61');
 ```
 
+The examples explicitly set `IDoptions.enableRotation = 0`. To test their
+rotation option and rotation plots, pass `true`; only the temporary copies are
+changed. Use a separate output directory to retain the default results:
+
+```matlab
+runSSLIPExamples('/path/to/results/mtex61-rotation', true);
+```
+
+This also saves the fitted rotation in the numeric MAT files (radians) and
+exports each example's rotation plot (degrees). The physical slip plots keep
+their original system order and zero-activity handling.
+
 Repeat in a fresh session with MTEX 7 initialized and a different output directory:
 
 ```matlab
