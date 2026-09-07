@@ -4,6 +4,16 @@ Use a fresh MATLAB session with the MTEX version to be tested initialized.
 Avoid switching MTEX versions in an already-running session. The plotting
 checks and supplied examples close figures.
 
+For background runs, start MATLAB with `-noFigureWindows -nosplash` so no plot
+windows appear, even briefly. MTEX 6.1 explicitly makes figures visible, so
+`DefaultFigureVisible = 'off'` alone is insufficient. Plot files can still be
+exported with figure windows disabled. With the desired MTEX initialized by
+your MATLAB startup script:
+
+```sh
+matlab -noFigureWindows -nosplash -batch "addpath('/path/to/SSLIP/tests'); runSSLIPChecks;"
+```
+
 ```matlab
 addpath('/path/to/mtex');
 startup_mtex('noMenu');
