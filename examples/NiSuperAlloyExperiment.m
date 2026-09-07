@@ -152,7 +152,7 @@ IDoptions.layout = [3 4];
 IDoptions.plotTraces = 1;
 
 % give this a name for saving
-IDoptions.casename = ['Ni_grain',grainId,'_',idName{Ss_batch}];
+IDoptions.casename = ['Ni_grain',num2str(grainId),'_',idName{Ss_batch}];
 
 % specify wether or not to plot defGrad fields and Eff shear strain fields,
 % before performing SSLIP
