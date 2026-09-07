@@ -329,6 +329,59 @@ shared residual scales, stale stored residuals, unchanged radians after plotting
 missing rotation fields, and the existing PNG/JPEG export names. Both MATLAB
 sessions exited successfully and used `-noFigureWindows -nosplash`.
 
+## Reorganization checkpoint 3: single-slip solver
+
+This checkpoint adapts Philipp's `solveSSLIP_SingleSlip` from `d3ee1a5` into
+`src/`. The method-3 branch in `SSLIP` now delegates to this function. It still
+uses the existing `SSLIPConstr` least-squares fit for each selected system;
+the existing method-1 and method-2 solver functions retain their names and code.
+
+The helper takes the already selected systems in their supplied order and
+returns systems-by-pixels activities and residuals. It does not apply `NoSs`
+again. An optional third output returns the executed options, preserving the
+public `SSLIP` behavior that reports `posConstr = 0` after the single-slip
+override. Rotation remains unsupported for method 3, including a direct call
+to the extracted helper.
+
+The existing fitting conventions are retained:
+
+- Acceptance uses a strict residual comparison, with the same absolute floor
+  and optional relative threshold.
+- `singleSlipPerPixel` retains the winning amplitude and resolves an exact tie
+  using the first system in the supplied order.
+- Rejected activities become zero while their per-system residuals remain
+  available. A NaN-gradient test retains zero activity and NaN residual.
+- Method 3 retains its residual-based acceptance and does not apply method 1's
+  `minEeff` cutoff. This is pre-existing behavior, not a new change to the
+  combined solver's handling of skipped pixels.
+
+| Check against checkpoint 2 (`d074c15`) | MTEX 6.1.0 | MTEX 7.0.0 |
+| --- | --- | --- |
+| Focused checks, including the extracted single-slip path | Passed | Passed |
+| Ni single-slip results, six option combinations | Exactly unchanged | Exactly unchanged |
+| HCP single-slip results, six option combinations | Exactly unchanged | Exactly unchanged |
+| Both full examples, rotation off and on | Exactly unchanged | Exactly unchanged |
+
+The 24 single-slip comparisons cover full and reordered subsets, fixed and
+relative thresholds, one-system-per-pixel selection, normalization, and the
+positive-constraint override. They reuse the saved processed displacements
+with filtering disabled and coarse-graining set to 1, on a fresh dummy grid
+carrying the saved coordinates. The supplied local slip systems are unchanged.
+Activities, residuals, coordinates, original system labels, and returned
+options exactly match each MTEX version's own pre-extraction baseline.
+
+The full method-1 examples also exactly retain their saved numerical arrays
+and returned options, including rotations, zeros, NaNs, and solver flags.
+Additional focused checks cover known signed amplitudes, exact ties, normalized
+coefficients, matrix-shaped gradient input, and strict threshold rejection.
+Both MATLAB sessions exited successfully with figure windows disabled.
+
+Source comments and the adaptation commit's `Co-authored-by` trailer identify
+Philipp's contribution. The conservative separation of preprocessing, the small
+plotting routines, and single-slip solving is now in place. Direct gradient
+input, stress alignment, activity grouping/ranking, and broader interface or
+folder changes remain separate proposals.
+
 ## Reproducing the checks
 
 See [tests/README.md](../tests/README.md). The example runner saves numeric

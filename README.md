@@ -27,8 +27,8 @@ Please report any bugs you encounter. Instructions for the [regression checks an
 **SSLIP** has been conceptualized and created by [**Tijmen Vermeij**](https://www.tue.nl/en/research/researchers/tijmen-vermeij/), under supervision of **Johan Hoefnagels**, **Ron Peerlings** and **Marc Geers**.
 
 **Philipp ([PhilKro](https://github.com/PhilKro))** contributed the single-slip
-selection correction, explicit rotation support, and separation of preprocessing
-and the small plotting routines adopted from
+selection correction, explicit rotation support, and separation of preprocessing,
+single-slip solving, and the small plotting routines adopted from
 [PR #2](https://github.com/Tijmenvermeij/SSLIP/pull/2). The adapted commits retain
 his co-author credit; the [integration notes](docs/mtex7-and-pr2-review.md)
 identify his original commits and the corrections made during integration.

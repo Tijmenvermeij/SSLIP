@@ -183,7 +183,6 @@ Hxx = data.Hxx;
 Hxy = data.Hxy;
 Hyx = data.Hyx;
 Hyy = data.Hyy;
-Eeff = data.Eeff;
 
 % define plotting name
 plotName = [opt.casename '_' opt.comment '_' ];
@@ -221,56 +220,8 @@ elseif opt.IDMethod == 2 % constrained slip ID
 
 elseif opt.IDMethod == 3 % single slip ID
     opt.plotname = [opt.plotname,'_singleSlip'];
-
-    % initialize matrices
-    slipIDcor = zeros(length(NoSs),length(ebsdID));
-    residualEeff = zeros(length(NoSs),length(ebsdID));
-
-    % don't use constraints at single slip ID (since it has no benefit
-    % usually, and is much faster without it)
-    if opt.posConstr == 1
-        warning('option "posConstr" changed to 0, since it has no added value for single slip ID, and is much slower')
-        opt.posConstr = 0;
-    end
-
-    % loop over single slip systemsm, and perform SSLIP (without
-    % minimization)
-    for j = 1:length(NoSs)
-        [slipIDcor(j,:),residualEeff(j,:)] = SSLIPConstr(sSAnalysis(j),Hxx,Hxy,Hyx,Hyy,opt);
-    end
-   
-    % use residual to "filter" the fields, only leaving activities with low
-    % residual
-    if ~isfield(opt,'threshResidualFraction')
-        % "clean" slipID by using theshold on residual, based on single systems
-        goodData = residualEeff < opt.threshResidual;
-    else
-        % "clean" slipID by using theshold on residual, based on single
-        % systems, based on factor of total effective shear (not used
-        % often)
-        threshResidual = Eeff(:) * opt.threshResidualFraction;
-        threshResidual(threshResidual<opt.threshResidual) = opt.threshResidual;
-        goodData = residualEeff < threshResidual';
-    end
-
-    %%% not used a lot:
-    % this option leaves only 1 slip system active at each datapoint, which has the lowest residual.
-    % Although this might make sense, noise can be detrimental here
-    if isfield(opt,'singleSlipPerPixel')
-        if opt.singleSlipPerPixel
-            [~,minThreshInd] = min(residualEeff,[],1);
-            singleSlipID = zeros(size(slipIDcor));
-            for j=1:length(ebsdID)
-                singleSlipID(minThreshInd(j),j) = slipIDcor(minThreshInd(j),j);
-            end
-            slipIDcor = singleSlipID;
-        end
-    end
-    
-    
-    % make all slip activities, with residual abovet threshold, zero.
-    % (might be better to make it NaN, but not nice for plotting)
-    slipIDcor(~goodData) = 0;
+    % Return updated options as well: method 3 switches posConstr off.
+    [slipIDcor,residualEeff,opt] = solveSSLIP_SingleSlip(sSAnalysis,Hxx,Hxy,Hyx,Hyy,opt);
     
 else
     error('IDMethod unknown (should be 1, 2, 3)')
@@ -289,5 +240,4 @@ ebsdID.prop.slipIDcor = slipIDcor;
 
 
 end
-
 

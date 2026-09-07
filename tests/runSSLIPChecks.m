@@ -199,6 +199,58 @@ assert(all(ebsdSecond.prop.slipIDcor(1,:) == 0));
 assert(max(abs(ebsdSecond.prop.slipIDcor(2,:)-.2)) < 1e-10);
 fprintf('PASS: singleSlipPerPixel preserves the best-fit activity.\n');
 
+% The extracted single-slip solver uses the supplied system order and reports
+% the positive-constraint override through the unchanged public SSLIP call.
+sOrdered = [sTwo(1); sRotation(2); sTwo(2)];
+singleOpt = opt;
+singleOpt.NoSs = [3 1];
+singleOpt.posConstr = 1;
+singleOpt.singleSlipPerPixel = 0;
+singleOpt.threshResidual = .3;
+[ordered,orderedOpt] = SSLIP(ebsd,.2*Y,-.3*X,sOrdered,singleOpt);
+assert(isequal(size(ordered.prop.slipIDcor),[2 16]));
+assert(max(abs(ordered.prop.slipIDcor-[-.3;.2]),[],'all') < 1e-12);
+assert(isequal(size(ordered.prop.residualEeff),[2 16]));
+assert(isequal(orderedOpt.NoSs,[3 1]) && orderedOpt.posConstr == 0);
+assert(singleOpt.posConstr == 1 && endsWith(orderedOpt.plotname,'_singleSlip'));
+singleOpt.posConstr = 0;
+singleOpt.singleSlipPerPixel = 1;
+[tiedGamma,~] = solveSSLIP_SingleSlip(sOrdered(singleOpt.NoSs), ...
+    zeros(2,3),ones(2,3)*.2,ones(2,3)*.2,zeros(2,3),singleOpt);
+assert(max(abs(tiedGamma(1,:)-.2)) < 1e-12);
+assert(all(tiedGamma(2,:) == 0));
+
+% Normalized coefficients retain their original meaning. The helper counts
+% all pixels of matrix input and does not apply method 1's minEeff cutoff.
+singleCfg = struct('posConstr',0,'threshResidual',1e-9,'minEeff',1);
+singleH = physicalA(:,1)*.2;
+for normalized = 0:1
+    singleCfg.normalizeInplane = normalized;
+    [singleGamma,singleResidual,executedCfg] = solveSSLIP_SingleSlip(sRotation(1), ...
+        repmat(singleH(1),2,3),repmat(singleH(2),2,3), ...
+        repmat(singleH(3),2,3),repmat(singleH(4),2,3),singleCfg);
+    expectedGamma = .2 * norm(physicalA(:,1))^normalized;
+    assert(isequal(size(singleGamma),[1 6]) && isequal(size(singleResidual),[1 6]));
+    assert(max(abs(singleGamma-expectedGamma)) < 1e-12);
+    assert(max(abs(singleResidual)) < 1e-12 && isequal(executedCfg,singleCfg));
+end
+singleCfg.normalizeInplane = 0;
+[lowOrMissing,resLowOrMissing] = solveSSLIP_SingleSlip(sS,[0 0],[.001 NaN],[0 0],[0 0],singleCfg);
+assert(isequal(lowOrMissing,[.001 0]));
+assert(resLowOrMissing(1) == 0 && isnan(resLowOrMissing(2)));
+singleCfg.threshResidual = calcEffectiveE(1,0,0,0);
+[boundaryGamma,boundaryResidual] = solveSSLIP_SingleSlip(sS,1,.2,0,0,singleCfg);
+assert(boundaryGamma == 0 && boundaryResidual == singleCfg.threshResidual);
+singleCfg.enableRotation = 1;
+caught = false;
+try
+    solveSSLIP_SingleSlip(sS,0,.2,0,0,singleCfg);
+catch exception
+    caught = strcmp(exception.identifier,'SSLIP:RotationRequiresMethod1');
+end
+assert(caught,'The single-slip helper must reject unsupported rotation.');
+fprintf('PASS: single-slip system order, options, ties, normalization, matrix inputs, and rejection semantics.\n');
+
 % Rotation extraction must preserve physical channels and original NoSs.
 rotationOpt.minEeff = 0;
 rotationOpt.IDMethod = 1;

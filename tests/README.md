@@ -32,6 +32,12 @@ Preprocessing checks cover affine gradients on a shifted rectangular grid, shuff
 EBSD input, coarse-graining, zero and missing displacement values with filtering
 off and on, and rejection of mismatched displacement dimensions.
 
+Single-slip checks cover reordered subsets, the reported positive-constraint
+override, tied residuals, normalized coefficients, matrix-shaped gradient input,
+and strict rejection at the residual threshold. They retain method 3's existing
+behavior for low-strain and missing pixels; method 1's `minEeff` cutoff is not
+applied to the single-slip fit.
+
 Separate plotting checks cover custom deformation limits, logarithmic shared
 residual scales, use of the supplied residual when stored data differs, rotation
 display in degrees without changing the saved radians, missing rotation data,
