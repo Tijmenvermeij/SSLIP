@@ -19,6 +19,9 @@ function [ebsdID,opt] = SSLIP(ebsd,U,V,sSLocal,opt)
 %   ebsdID      - Updated Mtex ebsd variable, with slip system activity
 %   fields in "prop" field. For method 1, prop.solverExitFlag contains each
 %   coneprog exit condition (NaN for pixels not solved).
+%   With opt.enableRotation, prop.rotationIDcor contains signed small-angle
+%   rotation in radians (one value per pixel); prop.slipIDcor retains only
+%   physical slip systems, in opt.NoSs order.
 %   opt         - struct with options, updated with defaults where applicable. 
 
 % This function contains the SSLIP method as proposed in the paper 
@@ -96,6 +99,18 @@ end
 % How to "reconfigure" the slip system under complex loads is T.B.D.
 if ~isfield(opt,'posConstr')
     opt.posConstr = 0;
+end
+
+% Optional small-angle rotation correction, adapted from Philipp (PhilKro),
+% PR #2: https://github.com/Tijmenvermeij/SSLIP/pull/2 (commit d3ee1a5).
+% Only the combined coneprog solver implements this additional basis.
+% minEeff still applies: use minEeff = 0 to include pure-rotation pixels.
+if ~isfield(opt,'enableRotation')
+    opt.enableRotation = 0;
+end
+if opt.enableRotation && opt.IDMethod ~= 1
+    error('SSLIP:RotationRequiresMethod1', ...
+        'enableRotation is supported only with IDMethod = 1.');
 end
 
 
@@ -307,6 +322,10 @@ opt.plotname = ['SSLIP_CGR_' num2str(opt.coarsegrain),'_Filt_' num2str(opt.filte
 if opt.IDMethod == 1 % combined & minimized slip ID
     [slipIDcor,residualEeff,solverExitFlag] = SSLIPConeprogConstrMinAbs(sSAnalysis,Hxx,Hxy,Hyx,Hyy,opt);
     ebsdID.prop.solverExitFlag = solverExitFlag;
+    if opt.enableRotation
+        ebsdID.prop.rotationIDcor = slipIDcor(end,:)';
+        slipIDcor = slipIDcor(1:end-1,:);
+    end
 
     opt.plotname = [opt.plotname,'_constr_min'];
 
@@ -384,7 +403,6 @@ ebsdID.prop.slipIDcor = slipIDcor;
 
 
 end
-
 
 
 

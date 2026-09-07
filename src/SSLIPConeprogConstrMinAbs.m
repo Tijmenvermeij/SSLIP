@@ -4,12 +4,19 @@ function [slipID,residualEeff,flags] = SSLIPConeprogConstrMinAbs(sS,Hxx,Hxy,Hyx,
 %%% solving. Uses constraints and minimized the sum of absolute values of
 %%% slip amplitudes
 % Third output: coneprog exit flags per pixel, NaN when no solve was attempted.
+% With options.enableRotation, the last row of slipID is the signed small
+% rotation angle in radians; preceding rows remain physical slip activities.
+% Rotation participates in the same L1 objective as slip, as in Philipp's PR.
 
 % This function contains the SSLIP method as proposed in the paper 
 % "T. Vermeij et al., Automated identification of slip system activity
 % fields from digital image correlation data, Acta Mater. 243, 2022"
 % DOI: https://doi.org/10.1016/j.actamat.2022.118502
 % Please consider citing this paper when you use this code.
+% Rotation kinematics: Vermeij et al., Strain 61 (2025), e70000, Eq. (11).
+% DOI: https://doi.org/10.1111/str.70000
+% Rotation support adapted from Philipp (PhilKro), PR #2, commit d3ee1a5:
+% https://github.com/Tijmenvermeij/SSLIP/pull/2
 
 % Date: 30-11-2022
 % the latest version of this code can be found on
@@ -30,10 +37,22 @@ end
 if ~isfield(options,'normalizeInplane')
     options.normalizeInplane = 0;
 end
+if ~isfield(options,'enableRotation')
+    options.enableRotation = 0;
+end
 
 %% start setting up the ID
 % get theoretical disp grad tensor components from the slip systems:
 Hslip = sS.deformationTensor.matrix;
+
+% Philipp's explicit rotation basis. Both signs remain available even when
+% physical slip is constrained to be positive.
+if options.enableRotation
+    Hslip(:,:,end+1) = [0 -1 0; 1 0 0; 0 0 0];
+    if options.posConstr
+        Hslip(:,:,end+1) = [0 1 0; -1 0 0; 0 0 0];
+    end
+end
 
 % extract the theoretical 2D components
 Hslip11 = reshape( Hslip(1,1,:) , 1, []);
@@ -49,8 +68,12 @@ A = [Hslip11
     Hslip22];
 
 % if necessary, normalize inplane
+rotationScale = 1;
 if options.normalizeInplane
     A = A./sqrt(sum(A.^2,1));
+    % The rotation basis has norm sqrt(2). Undo this scaling on output so
+    % the reported angle is in radians, also with normalized slip tensors.
+    rotationScale = sqrt(2);
 end
 
 % put the experimental disp grad components in a 3D-matrix (2x2xn), with n
@@ -78,7 +101,7 @@ N = size(Hslip,3); % no of considered slip systems
 Eeff = calcEffectiveE(Hxx(:),Hxy(:),Hyx(:),Hyy(:));
 
 % calc number of points on which ID will be performed
-numAnalysis = sum(Eeff>options.minEeff);
+numAnalysis = sum(Eeff>=options.minEeff);
 
 % create PARFOR waitmessage to monitor progress
 WaitMessage = parfor_wait(numAnalysis,'ReportInterval',ceil(numAnalysis/20));
@@ -172,6 +195,14 @@ end
 WaitMessage.Destroy
 
 slipID = gamma;
+if options.enableRotation
+    if options.posConstr
+        rotationID = (slipID(end-1,:) - slipID(end,:)) / rotationScale;
+        slipID = [slipID(1:end-2,:); rotationID];
+    else
+        slipID(end,:) = slipID(end,:) / rotationScale;
+    end
+end
 
 residualEeff = res;
 
@@ -180,6 +211,4 @@ residualEeff = res;
 
 
 end
-
-
 
