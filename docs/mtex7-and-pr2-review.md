@@ -9,9 +9,13 @@ update. The regression checks and both examples run under MTEX 6.1.0 and the
 [official MTEX 7.0.0 release](https://github.com/mtex-toolbox/mtex/releases/tag/mtex-7.0.0).
 No broad MTEX API rewrite was needed for these paths.
 
-Port Philipp's `singleSlipPerPixel` correction. Defer merging the full PR until
-the interface, indexing, and rotation issues below are resolved. The review
-branch `codex/philipp-pr2-review` preserves his original revision.
+Adopt Philipp's `singleSlipPerPixel` correction and explicit rotation basis in
+the existing functions. Correct rotation output scaling and reject unsupported
+solver methods. Keep the existing five-input call, activity array orientation,
+and full slip-system list, avoiding the interface and indexing problems in the
+original PR. No new functions are introduced for this integration. The full
+PR's architecture and plotting reorganization remain deferred; the review
+branch `codex/philipp-pr2-review` preserves his original revision unchanged.
 
 ## Validation
 
@@ -63,7 +67,97 @@ means no solve was attempted. Unsuccessful fits continue to return NaN activity
 and residual. The direct solver's third output now contains these per-pixel
 flags instead of the old zero-filled placeholder.
 
-## PR #2 review
+## Selected rotation integration
+
+### Contribution provenance
+
+Philipp's verified Git identity is
+`PhilKro <56341570+PhilKro@users.noreply.github.com>`.
+Both the single-slip correction and rotation support originate in his commit
+[`d3ee1a5`](https://github.com/PhilKro/SSLIP/commit/d3ee1a54eb9f8248565e0063060e749f9f56b9ce)
+and are present at the reviewed PR head
+[`222a9de`](https://github.com/PhilKro/SSLIP/commit/222a9de2448eb7e152a422d1b3bf0d335fd2bb06).
+
+The single-slip adaptation commit `235b21c` includes his `Co-authored-by`
+trailer. The rotation adaptation `b64616d` uses the same trailer and names the
+original commit. The source comments and README also credit him. These are adaptations
+to the current functions, rather than unchanged cherry-picks of his larger
+architecture commit. His original commits retain their authorship on the
+review branch; no attribution in his history is rewritten.
+
+The integration corrections are the normalization-to-radians conversion,
+the method guard, and extraction of rotation only after the combined solve.
+The progress count also includes pixels exactly at `minEeff`, matching the
+existing solve condition when pure rotation is included with `minEeff = 0`.
+The regression checks and per-pixel solver diagnostics were added during this
+review. They are distinguished from Philipp's original feature contribution.
+
+### Formulation and behavior
+
+Philipp's basis is the small-angle displacement gradient
+`Hrot = theta * [0 -1; 1 0]`, matching Eq. (11), Section 2.4, of
+[Vermeij et al., Strain 61 (2025), e70000](https://doi.org/10.1111/str.70000).
+Positive `theta` means `Hxy = -theta`, `Hyx = theta` for pure rotation; angles
+are in radians. This is a linear small-angle correction, not a finite-rotation
+iteration. The original slip formulation and L1 objective are described in
+Eq. (5) of [Vermeij et al., Acta Materialia 243, 118502](https://doi.org/10.1016/j.actamat.2022.118502).
+The supplied local copies were checked on pages 7 and 4-5, respectively.
+
+The adopted code retains Philipp's optimization choices:
+
+- Rotation is an additional basis in the combined `coneprog` fit, enabled by
+  `opt.enableRotation = 1` (default 0).
+- Positive slip constraints still allow both signs of rotation by introducing
+  positive and negative rotation terms and subtracting their fitted amplitudes.
+- All fitted coefficients, including rotation, retain unit weights in the L1
+  objective. Without normalization this penalizes `sum(abs(slip)) + abs(theta)`.
+  With normalization, the rotation penalty is `sqrt(2)*abs(theta)`, while the
+  slip coefficients refer to the normalized in-plane tensors as before.
+  The output conversion fixes units without changing the PR's objective.
+- `minEeff` and the residual threshold/fraction keep their existing meanings.
+  Pure rotation has zero effective strain and is skipped with a positive
+  `minEeff`; set it to zero to fit these pixels. Solver flags distinguish
+  skipped pixels (`NaN`) from solved pixels (`1`) and failed fits.
+
+`SSLIP` returns the angle in `ebsdID.prop.rotationIDcor` as pixels-by-one;
+`slipIDcor` stays systems-by-pixels, containing only the physical systems in
+`opt.NoSs` order. Calling `SSLIPConeprogConstrMinAbs` directly with rotation
+enabled returns the angle as its last activity row, following the PR's solver
+convention. Its second and third outputs remain residuals and exit flags.
+Methods 2 and 3 raise `SSLIP:RotationRequiresMethod1` before preprocessing if
+rotation is requested. They cannot silently consume a physical slip channel.
+
+The +SSLIP paper combines rotation correction with preselection, pairwise fits,
+and additional acceptance criteria. Adopting this PR extension does not
+implement that full workflow or establish unique identification with arbitrary
+linearly dependent slip systems. No new rotation weighting or selection
+algorithm was introduced.
+
+### Validation after integration
+
+The same existing functions and options work on both MTEX versions; no version
+detection, compatibility wrapper, or alternate implementation was needed.
+
+| Check, MATLAB R2024b | MTEX 6.1.0 | Official MTEX 7.0.0 |
+| --- | --- | --- |
+| Existing checks plus rotation cases | Passed | Passed |
+| Full Ni superalloy example | Passed | Passed |
+| Full virtual HCP example | Passed | Passed |
+| Rotation-disabled example results versus prior same-version checkpoint | Exactly equal | Exactly equal |
+
+The baseline comparison covers all saved activity, residual, solver-flag,
+gradient, coordinate, and slip-tensor arrays, including NaNs. The cross-version
+differences remain exactly those reported above: three changed solver outcomes
+for Ni and two for HCP. Both final sessions exited normally and used
+`-noFigureWindows -nosplash`.
+
+Rotation checks cover both angle signs with signed or positive slip bounds,
+normalized and unnormalized bases, pure slip, pure rotation, mixtures, a noisy
+mixture, selected-system output and plotting, skipped/invalid pixels, and
+unsupported-method errors. Residual assertions allow coneprog's actual default
+constraint tolerance (1e-6); its fitting tolerances were not changed.
+
+## Review of the original PR #2
 
 Reviewed [PR #2](https://github.com/Tijmenvermeij/SSLIP/pull/2),
 "Implemented rotation, straightened out architecture", at
@@ -71,7 +165,7 @@ Reviewed [PR #2](https://github.com/Tijmenvermeij/SSLIP/pull/2),
 Its merge base with current main is `1e2faa0` from 3 December 2025, so integration
 must preserve subsequent main changes, including the newer example dataset.
 
-### Confirmed issues to fix before merging
+### Confirmed issues in the original PR
 
 1. **The supplied examples call an incompatible interface.** The new
    `SSLIP(ebsd, DeformationData, sSLocal, cfg)` accepts four inputs, while both
@@ -111,11 +205,9 @@ must preserve subsequent main changes, including the newer example dataset.
   to extend, but is not necessary for MTEX 7 compatibility. Introduce it with
   updated examples and an explicit decision about public interfaces and array
   orientation.
-- Explicit rotation control is preferable to overloading `CRSS == 0`.
-  The PR penalizes rotation coefficients in the same L1 objective as slip, and
-  still skips low-effective-strain pixels, including pure rotation when the
-  threshold is positive. Those choices need to be specified and tested before
-  calling this a general rotation correction.
+- Explicit rotation control is adopted instead of overloading `CRSS == 0`.
+  The PR's L1 penalty and low-effective-strain cutoff are retained and specified
+  above; this is the selected rotation extension, not the full +SSLIP workflow.
 - Preserve the current sample dataset and citation information during a future
   merge. The PR removes the sample MAT file and removes the paper citation
   header from the combined solver.

@@ -28,6 +28,14 @@ tolerances, the noise floor, signed and positive activity, skipped/invalid pixel
 infeasible fits, per-pixel solver exit flags, single-slip filtering and selection,
 residual color scales, and all three trace plotting layouts.
 
+The same checks also exercise Philipp's optional rotation extension: positive
+and negative rotation with either slip-sign constraint, radians after in-plane
+normalization, pure slip, pure rotation, mixtures, a noisy mixture, skipped and
+invalid pixels, selected-system plotting, and rejection by unsupported methods.
+These synthetic fits use independent slip and rotation bases so known
+amplitudes can be recovered; they do not imply uniqueness for arbitrary sets
+of crystallographic slip systems.
+
 ## Full examples
 
 The example runner also requires Image Processing Toolbox. It copies the code,
