@@ -32,6 +32,12 @@ Preprocessing checks cover affine gradients on a shifted rectangular grid, shuff
 EBSD input, coarse-graining, zero and missing displacement values with filtering
 off and on, and rejection of mismatched displacement dimensions.
 
+Direct-gradient checks cover structured input, shuffled point order, preserved
+zero and missing components, incomplete/mismatched/ambiguous data, unsupported
+preprocessing, rotation fitting, removal of stale result fields, and five-panel
+gradient-only plots including all-zero data. Structured displacement input is
+also checked against the original five-input call.
+
 Single-slip checks cover reordered subsets, the reported positive-constraint
 override, tied residuals, normalized coefficients, matrix-shaped gradient input,
 and strict rejection at the residual threshold. They retain method 3's existing

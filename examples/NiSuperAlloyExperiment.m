@@ -230,6 +230,15 @@ mtexColorbar
 
 
 
+% Refit the saved gradients directly (they are already processed):
+% gradientData = struct('Hxx',ebsdID.prop.Hxx,'Hxy',ebsdID.prop.Hxy, ...
+%     'Hyx',ebsdID.prop.Hyx,'Hyy',ebsdID.prop.Hyy);
+% gradientOptions = optOut;
+% gradientOptions.filterSize = 0;
+% gradientOptions.coarsegrain = 1;
+% gradientOptions.casename = [optOut.casename '_fromH'];
+% [ebsdFromH,optFromH] = SSLIP(ebsdID,gradientData,sSLocal,gradientOptions);
+
 % %%% potentially, for replotting:
 % plotSSLIP(ebsdID.prop.slipIDcor,ebsdID.prop.residualEeff,ebsdID,sSLocal,optOut)
 % plotSSLIP_DeformationFields(ebsdID,optOut);

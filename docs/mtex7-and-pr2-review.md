@@ -382,6 +382,76 @@ plotting routines, and single-slip solving is now in place. Direct gradient
 input, stress alignment, activity grouping/ranking, and broader interface or
 folder changes remain separate proposals.
 
+## Feature checkpoint 4: direct gradient input
+
+This checkpoint adapts Philipp's structured displacement/gradient input from
+`d3ee1a5`, alongside the existing five-input call:
+
+```matlab
+[ebsdID,optOut] = SSLIP(ebsd,U,V,sSLocal,opt);
+[ebsdID,optOut] = SSLIP(ebsd,deformationData,sSLocal,opt);
+```
+
+The second output remains options, the options structure remains flat, and
+activities retain their systems-by-pixels shape and original system labels.
+A structure containing `U,V` takes the existing displacement path. A structure
+containing `Hxx,Hxy,Hyx,Hyy` supplies displacement gradients directly.
+
+### Input contract
+
+The first gradient-input implementation accepts fields that are ready for
+fitting. It does not infer whether they are raw or processed from their shape.
+All four components must match the size and point order of the supplied EBSD
+data. Each component is attached before gridify, so unordered points retain
+their correspondence with the coordinates. A processed gradient field therefore
+requires its matching processed grid, not the original higher-resolution grid.
+
+Gradient input defaults to `filterSize = 0` and `coarsegrain = 1`; other values
+are rejected explicitly. Displacement defaults remain unchanged. Mixed input,
+incomplete components, mismatched dimensions, complex values, and infinities
+are rejected. Real single/double arrays are accepted and converted to double;
+zeros retain their physical meaning and NaN denotes missing data.
+
+The output starts with clean data properties on a copy of the supplied grid,
+retaining its spatial/orientation metadata without stale fits. Gradient-only
+results omit `U,V` rather than reconstructing or filling unavailable
+displacements. Their deformation figure contains the five available fields.
+Zero or missing gradient fields receive non-degenerate display limits; stored
+values and solver acceptance rules are unchanged.
+
+Both examples retain the displacement call and now include a commented example
+for refitting their saved gradients, with explicit preprocessing settings and
+a separate case name. No new library functions were introduced for this feature.
+
+### Validation
+
+| Check | MTEX 6.1.0 | MTEX 7.0.0 |
+| --- | --- | --- |
+| Focused checks, including structured and direct-gradient input | Passed | Passed |
+| Existing Ni/HCP examples, rotation off and on, versus checkpoint 3 | Exactly unchanged | Exactly unchanged |
+| Ni/HCP refits from their saved gradients, rotation off and on | Exactly match existing fits | Exactly match existing fits |
+| Existing deformation/residual/rotation figures | Pixel-identical | Pixel-identical |
+
+The eight direct-gradient refits match the existing activity, residual,
+solver-flag, gradient, effective-strain, and optional rotation arrays exactly,
+including zeros and NaNs, against each version's own results. Gradient-input
+options correctly report no additional filtering or coarse-graining; the
+original displacement-path returned options remain exactly unchanged.
+
+Focused checks cover reordered points with spatially varying components,
+physical zeros and NaNs, malformed inputs, rejection of extra preprocessing,
+known rotation/slip coefficients, removal of stale rotation and solver flags,
+zero-field plots, and equivalence of structured and five-input displacements.
+The 12 existing figure comparisons retain their graphics properties and PNG
+pixels. Additional checks cover single-precision conversion and all-missing
+gradient plots. The new Ni gradient-only figures were exported for inspection.
+All runs used `-noFigureWindows -nosplash` in separate MTEX sessions.
+
+This implements a bounded version of Philipp's input feature. Filtering raw
+gradient fields, automatic stress alignment, and activity grouping/ranking
+remain separate proposals. Source references and the feature commit's
+`Co-authored-by` trailer retain Philipp's contribution credit.
+
 ## Reproducing the checks
 
 See [tests/README.md](../tests/README.md). The example runner saves numeric

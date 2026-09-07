@@ -169,6 +169,79 @@ end
 assert(caught,'Displacement sizes must match the EBSD grid.');
 fprintf('PASS: preprocessing grid order, affine gradients, coarse-graining, masks, and input sizes.\n');
 
+% Ready-to-fit gradients follow EBSD point ordering and preserve physical
+% zeros/NaNs without inventing displacement fields or reprocessing H.
+gradientData = struct('Hxx',.001*prepX+.002*prepY,'Hxy',zeros(size(prepX)), ...
+    'Hyx',ones(size(prepX))*.03,'Hyy',.002*prepX);
+gradientData.Hxx(3,3) = NaN;
+gradientFields = {'Hxx','Hxy','Hyx','Hyy'};
+shuffledData = struct;
+for k = 1:4
+    name = gradientFields{k};
+    shuffledData.(name) = gradientData.(name)(order);
+end
+readyOpt = struct('filterSize',0,'coarsegrain',1);
+[ready,readyGrid] = preprocessSSLIP(prepGrid,gradientData,readyOpt);
+[shuffledReady,shuffledReadyGrid] = preprocessSSLIP(prepPoints,shuffledData,readyOpt);
+assert(isequaln(ready,shuffledReady));
+assert(isequal(readyGrid.x,shuffledReadyGrid.x) && isequal(readyGrid.y,shuffledReadyGrid.y));
+assert(~isfield(ready,'U') && ~isfield(readyGrid.prop,'V'));
+assert(isequal(ready.Hxy,zeros(size(prepX))) && isnan(ready.Hxx(3,3)));
+for k = 1:4
+    name = gradientFields{k};
+    assert(isequaln(ready.(name),gradientData.(name)));
+end
+badGradientData = {rmfield(gradientData,'Hyy'),gradientData,gradientData,gradientData,gradientData};
+badGradientData{2}.Hyy = zeros(2,3);
+badGradientData{3}.U = prepU;
+badGradientData{4}.Hxx(1) = Inf;
+badGradientData{5}.Hxy(1) = 1i;
+expectedErrors = {'SSLIP:MissingGradients','SSLIP:GradientSizeMismatch', ...
+    'SSLIP:AmbiguousDeformationData','SSLIP:InvalidGradients','SSLIP:InvalidGradients'};
+for k = 1:numel(badGradientData)
+    caught = false;
+    try
+        preprocessSSLIP(prepGrid,badGradientData{k},readyOpt);
+    catch exception
+        caught = strcmp(exception.identifier,expectedErrors{k});
+    end
+    assert(caught,'Invalid gradient input must be rejected.');
+end
+for settingsPair = [1 0;1 2]
+    rejectedOpt = struct('filterSize',settingsPair(1),'coarsegrain',settingsPair(2));
+    caught = false;
+    try
+        preprocessSSLIP(prepGrid,gradientData,rejectedOpt);
+    catch exception
+        caught = strcmp(exception.identifier,'SSLIP:GradientPreprocessing');
+    end
+    assert(caught,'Ready-to-fit gradients must not be filtered or coarse-grained again.');
+end
+
+% Four-input SSLIP uses the same physical/rotation solve and keeps the second
+% output as options. Gradient-only plots contain five available fields.
+gradientH = physicalA(:,2)*.2 + rotationBasis*(-.03);
+fitData = struct;
+for k = 1:4, fitData.(gradientFields{k}) = ones(size(X))*gradientH(k); end
+gradientOpt = struct('NoSs',2,'minEeff',0,'threshResidual',1e-6, ...
+    'enableRotation',1,'plotSSLIP',0,'plotDefGrad',1,'saveFig',0,'cmap',parula(256));
+[gradientFit,gradientOut] = SSLIP(ebsd,fitData,sRotation,gradientOpt);
+assert(gradientOut.filterSize==0 && gradientOut.coarsegrain==1 && gradientOut.NoSs==2);
+assert(max(abs(gradientFit.prop.slipIDcor-.2),[],'all') < 2e-5);
+assert(max(abs(gradientFit.prop.rotationIDcor+.03)) < 2e-5);
+assert(all(gradientFit.prop.solverExitFlag==1) && ~isfield(gradientFit.prop,'U'));
+assert(numel(findall(gcf,'Type','axes'))==5);
+close all;
+for k = 1:4, fitData.(gradientFields{k}) = zeros(size(X)); end
+gradientOpt.enableRotation = 0;
+gradientOpt.IDMethod = 3;
+[zeroGradientFit,~] = SSLIP(gradientFit,fitData,sRotation,gradientOpt);
+assert(all(zeroGradientFit.prop.slipIDcor==0,'all'));
+assert(~isfield(zeroGradientFit.prop,'rotationIDcor') && ~isfield(zeroGradientFit.prop,'solverExitFlag'));
+assert(numel(findall(gcf,'Type','axes'))==5);
+close all;
+fprintf('PASS: direct gradients, grid alignment, validation, rotation, missing displacements, and zero-field plots.\n');
+
 opt.IDMethod = 3;
 opt.posConstr = 0;
 opt.filterSize = 0;
@@ -177,8 +250,10 @@ opt.plotSSLIP = 0;
 opt.plotDefGrad = 0;
 opt.saveFig = 0;
 opt.threshResidualFraction = .001;
-[ebsdFloor,~] = SSLIP(ebsd,.02*Y,.005*Y,sS,opt);
+[ebsdFloor,floorOpt] = SSLIP(ebsd,.02*Y,.005*Y,sS,opt);
 assert(max(abs(ebsdFloor.prop.slipIDcor(:)-.02)) < 1e-10);
+[structuredFloor,structuredOpt] = SSLIP(ebsd,struct('U',.02*Y,'V',.005*Y),sS,opt);
+assert(isequaln(structuredFloor.prop,ebsdFloor.prop) && isequaln(structuredOpt,floorOpt));
 opt.threshResidualFraction = .1;
 [ebsdRelative,~] = SSLIP(ebsd,.2*Y,.015*Y,sS,opt);
 assert(max(abs(ebsdRelative.prop.slipIDcor(:)-.2)) < 1e-10);

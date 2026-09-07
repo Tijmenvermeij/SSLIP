@@ -3,7 +3,9 @@ function plotSSLIP_DeformationFields(ebsdID, opt)
 % Use the options returned by SSLIP to reproduce its scales and saved names.
 % Adapted from Philipp (PhilKro), PR #2, original commit d3ee1a5:
 % https://github.com/Tijmenvermeij/SSLIP/pull/2
-% Retains the existing SSLIP figure layout, limits, and export conventions.
+% Retains the displacement-input layout, limits, and export conventions.
+% Gradient-only input omits the unavailable displacement panel. Constant zero
+% or missing fields use non-degenerate limits without modifying stored data.
 
 if nargin < 2, opt = struct; end
 if ~isfield(opt,'cmap'), opt.cmap = viridis(256); end
@@ -19,9 +21,11 @@ Hyy = ebsdID.prop.Hyy;
 figure;
 f1=newMtexFigure('layout',[3 2]);
 
-plot(ebsdID,ebsdID.prop.U,'micronbar','off'); title('U_x')
-
-nextAxis
+hasDisplacements = isfield(ebsdID.prop,'U');
+if hasDisplacements
+    plot(ebsdID,ebsdID.prop.U,'micronbar','off'); title('U_x')
+    nextAxis
+end
 
 plot(ebsdID,Eeff,'micronbar','off'); title('E_{eff}');
 
@@ -37,30 +41,29 @@ if isfield(opt,'maxE')
 else
     cmax = max(Eeff(:));
 end
+if isempty(cmax) || ~isfinite(cmax) || cmax <= cmin
+    cmax = cmin + 1;
+end
 caxis([cmin cmax])
 
-nextAxis
-plot(ebsdID,Hxx,'micronbar','off'); title('H_{11}'); caxis([-1*max([max(Hxx(:)),abs(min(Hxx(:)))]) max([max(Hxx(:)),abs(min(Hxx(:)))])]);
-nextAxis
-plot(ebsdID,Hxy,'micronbar','off'); title('H_{12}'); caxis([-1*max([max(Hxy(:)),abs(min(Hxy(:)))]) max([max(Hxy(:)),abs(min(Hxy(:)))])]);
-nextAxis
-plot(ebsdID,Hyx,'micronbar','off'); title('H_{21}'); caxis([-1*max([max(Hyx(:)),abs(min(Hyx(:)))]) max([max(Hyx(:)),abs(min(Hyx(:)))])]);
-nextAxis
-plot(ebsdID,Hyy,'micronbar','off'); title('H_{22}'); caxis([-1*max([max(Hyy(:)),abs(min(Hyy(:)))]) max([max(Hyy(:)),abs(min(Hyy(:)))])]);
+components = {Hxx,Hxy,Hyx,Hyy};
+titles = {'H_{11}','H_{12}','H_{21}','H_{22}'};
+for k = 1:4
+    nextAxis
+    values = components{k};
+    plot(ebsdID,values,'micronbar','off'); title(titles{k});
+    limit = max(abs(values(isfinite(values))));
+    if isempty(limit) || limit <= 0, limit = 1; end
+    caxis([-limit limit]);
+end
 mtexColorbar
 
-f1.children(1).Colormap = jet(512);
-f1.children(2).Colormap = opt.cmap;
-f1.children(3).Colormap = jet(512);
-f1.children(4).Colormap = jet(512);
-f1.children(5).Colormap = jet(512);
-f1.children(6).Colormap = jet(512);
-
-if isfield(opt,'DefGradLim')
-    f1.children(3).CLim = opt.DefGradLim ;
-    f1.children(4).CLim = opt.DefGradLim ;
-    f1.children(5).CLim = opt.DefGradLim ;
-    f1.children(6).CLim = opt.DefGradLim ;
+strainAxis = 1 + hasDisplacements;
+if hasDisplacements, f1.children(1).Colormap = jet(512); end
+f1.children(strainAxis).Colormap = opt.cmap;
+for k = strainAxis+(1:4)
+    f1.children(k).Colormap = jet(512);
+    if isfield(opt,'DefGradLim'), f1.children(k).CLim = opt.DefGradLim; end
 end
 
 if isfield(opt,'fontSize')

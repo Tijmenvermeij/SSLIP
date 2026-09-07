@@ -32,6 +32,7 @@ single-slip solving, and the small plotting routines adopted from
 [PR #2](https://github.com/Tijmenvermeij/SSLIP/pull/2). The adapted commits retain
 his co-author credit; the [integration notes](docs/mtex7-and-pr2-review.md)
 identify his original commits and the corrections made during integration.
+The structured displacement/gradient input is also adapted from his PR.
 
 # Optional rotation correction
 
@@ -53,6 +54,34 @@ rotation should also be fitted. This uses the small-angle approximation from
 It retains the PR's L1 penalty on rotation and does not implement the full
 Radon and slip-pair selection workflow from that paper. See the
 [formulation and normalization details](docs/mtex7-and-pr2-review.md#selected-rotation-integration).
+
+# Input from displacement gradients
+
+The original `SSLIP(ebsd,U,V,sSLocal,opt)` call is retained. Philipp's structured
+input form is now also supported, with the same two outputs and flat options:
+
+```matlab
+deformationData = struct('Hxx',Hxx,'Hxy',Hxy,'Hyx',Hyx,'Hyy',Hyy);
+opt.filterSize = 0;
+opt.coarsegrain = 1;
+[ebsdID,optOut] = SSLIP(ebsd,deformationData,sSLocal,opt);
+```
+
+Supply displacement gradients: `Hxx = dU/dx`, `Hxy = dU/dy`, `Hyx = dV/dx`,
+and `Hyy = dV/dy`. Each array must match the EBSD grid's size and point order.
+Values must be real floating-point numbers; zeros are retained and NaN denotes
+missing data. Single-precision inputs are converted to double for fitting.
+
+These gradients must be ready for fitting. The gradient-input defaults are
+`filterSize = 0` and `coarsegrain = 1`; requesting further filtering or
+coarse-graining raises an error. Supply the corresponding processed EBSD grid
+if your gradients have already been coarse-grained. This avoids guessing the
+grid or applying preprocessing twice.
+
+Alternatively, `deformationData = struct('U',U,'V',V)` uses the existing
+displacement preprocessing and defaults. Mixing displacements and gradients
+in the same input is rejected. With gradient-only input, the output contains
+no `U` or `V`, and the deformation figure shows the five available fields.
 
 # Replot saved results
 

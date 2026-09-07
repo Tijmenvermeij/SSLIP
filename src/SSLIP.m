@@ -5,6 +5,10 @@ function [ebsdID,opt] = SSLIP(ebsd,U,V,sSLocal,opt)
 %
 % Syntax
 %   [PLOTEBSD,opt] = SSLIP(ebsd,U,V,sSLocal,opt)
+%   [PLOTEBSD,opt] = SSLIP(ebsd,DeformationData,sSLocal,opt)
+%   DeformationData contains either U,V or Hxx,Hxy,Hyx,Hyy.
+%   Supplied gradients are ready for fitting, aligned with ebsd; use
+%   filterSize = 0 (the gradient-input default) and coarsegrain = 1.
 % Input
 %   ebsd        - Mtex ebsd variable, used predominantly for the position
 %               grid
@@ -39,6 +43,19 @@ function [ebsdID,opt] = SSLIP(ebsd,U,V,sSLocal,opt)
 %
 % MTEX is required to use this code
 
+% Accept Philipp's structured input alongside the original five-input call.
+% Outputs and the flat options structure retain their existing conventions.
+if nargin == 4 && isstruct(U)
+    opt = sSLocal;
+    sSLocal = V;
+    DeformationData = U;
+elseif nargin == 5
+    DeformationData = struct('U',U,'V',V);
+else
+    error('SSLIP:InvalidInputs', ...
+        'Use SSLIP(ebsd,U,V,sSLocal,opt) or SSLIP(ebsd,DeformationData,sSLocal,opt).');
+end
+isGradientInput = any(isfield(DeformationData,{'Hxx','Hxy','Hyx','Hyy'}));
 
 %% Set default options, if needed
 
@@ -76,7 +93,11 @@ end
 % Defined in datapoints
 % use 0 for no filtering
 if ~isfield(opt,'filterSize')
-    opt.filterSize = 1;
+    if isGradientInput
+        opt.filterSize = 0;
+    else
+        opt.filterSize = 1;
+    end
 end
 
 % coarse graining setting, 1 = no coarse graining, 2 = 2x2 pixels 
@@ -177,8 +198,7 @@ end
 
 %% prepare data for SSLIP
 % Preprocessing separation adapted from Philipp (PhilKro), PR #2.
-% Keep the existing public displacement inputs and flat options structure.
-[data,ebsdID] = preprocessSSLIP(ebsd,struct('U',U,'V',V),opt);
+[data,ebsdID] = preprocessSSLIP(ebsd,DeformationData,opt);
 Hxx = data.Hxx;
 Hxy = data.Hxy;
 Hyx = data.Hyx;
@@ -240,4 +260,3 @@ ebsdID.prop.slipIDcor = slipIDcor;
 
 
 end
-
