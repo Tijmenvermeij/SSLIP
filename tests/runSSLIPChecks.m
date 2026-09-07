@@ -1,6 +1,6 @@
 function runSSLIPChecks
 % Run focused regression checks with the currently initialized MTEX version.
-% Requires MATLAB Optimization Toolbox and Parallel Computing Toolbox.
+% Requires Optimization, Parallel Computing, and Image Processing Toolboxes.
 % Run in a separate MATLAB session: the plotting checks close figures.
 
 root = fileparts(fileparts(mfilename('fullpath')));
@@ -118,6 +118,57 @@ fprintf('PASS: rotation signs, radians after normalization, mixtures, noise, and
 CS = crystalSymmetry('m-3m');
 ori = orientation.byEuler(0,0,0,CS);
 ebsd = dummyEBSDSimple(ori,X,Y);
+
+% Preprocessing must preserve gradients and coordinate ordering on a shifted
+% rectangular grid, including shuffled EBSD points and coarse-grained data.
+[prepX,prepY] = meshgrid(2:2:20,-9:2:5);
+prepU = 2 + .02*prepX - .03*prepY;
+prepV = -1 + .04*prepX + .05*prepY;
+prepGrid = dummyEBSDSimple(ori,prepX,prepY);
+order = [2:2:numel(prepX),1:2:numel(prepX)]';
+positions = vector3d(prepX(order),prepY(order),zeros(numel(order),1));
+prepPoints = EBSD(positions,repmat(ori,numel(order),1), ...
+    ones(numel(order),1),CS,struct());
+for coarsegrain = [1 2]
+    prepOpt = struct('filterSize',0,'coarsegrain',coarsegrain);
+    [prepared,preparedGrid] = preprocessSSLIP(prepGrid, ...
+        struct('U',prepU,'V',prepV),prepOpt);
+    [shuffled,shuffledGrid] = preprocessSSLIP(prepPoints, ...
+        struct('U',prepU(order),'V',prepV(order)),prepOpt);
+    expectedSize = [8 10] / 2^(coarsegrain-1);
+    assert(isequal(size(preparedGrid),expectedSize));
+    assert(isequaln(prepared,shuffled));
+    assert(isequal(preparedGrid.x,shuffledGrid.x) && isequal(preparedGrid.y,shuffledGrid.y));
+    assert(max(abs(prepared.U-(2+.02*preparedGrid.x-.03*preparedGrid.y)),[],'all') < 1e-12);
+    assert(max(abs(prepared.V-(-1+.04*preparedGrid.x+.05*preparedGrid.y)),[],'all') < 1e-12);
+    assert(max(abs(prepared.Hxx-.02),[],'all') < 1e-12);
+    assert(max(abs(prepared.Hxy+.03),[],'all') < 1e-12);
+    assert(max(abs(prepared.Hyx-.04),[],'all') < 1e-12);
+    assert(max(abs(prepared.Hyy-.05),[],'all') < 1e-12);
+end
+
+% Retain the existing zero/missing-displacement convention during filtering.
+maskU = ones(size(prepX)); maskU(3,3) = 0;
+maskV = ones(size(prepY)); maskV(4,4) = NaN;
+prepOpt.coarsegrain = 1;
+[unfiltered,~] = preprocessSSLIP(prepGrid,struct('U',maskU,'V',maskV),prepOpt);
+assert(unfiltered.U(3,3) == 0 && isnan(unfiltered.V(4,4)));
+prepOpt.filterSize = 1;
+[filtered,~] = preprocessSSLIP(prepGrid,struct('U',maskU,'V',maskV),prepOpt);
+assert(isequal(isnan(filtered.U),maskU == 0));
+assert(isequal(isnan(filtered.V),isnan(maskV)));
+assert(max(abs(filtered.U(isfinite(filtered.U))-1)) < 1e-12);
+assert(max(abs(filtered.V(isfinite(filtered.V))-1)) < 1e-12);
+% A mismatch in only one dimension must also be rejected.
+caught = false;
+try
+    preprocessSSLIP(prepGrid,struct('U',prepU(:,1:7),'V',prepV),prepOpt);
+catch exception
+    caught = strcmp(exception.identifier,'SSLIP:DisplacementSizeMismatch');
+end
+assert(caught,'Displacement sizes must match the EBSD grid.');
+fprintf('PASS: preprocessing grid order, affine gradients, coarse-graining, masks, and input sizes.\n');
+
 opt.IDMethod = 3;
 opt.posConstr = 0;
 opt.filterSize = 0;

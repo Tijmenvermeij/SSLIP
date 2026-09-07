@@ -4,8 +4,8 @@ Date: 7 September 2026. Cleanup checkpoint: `f0ef743`.
 
 ## Decision
 
-Keep the existing public interface and code organization for this compatibility
-update. The regression checks and both examples run under MTEX 6.1.0 and the
+The initial compatibility update, through `09c8aac`, kept the existing public
+interface and code organization. The regression checks and both examples run under MTEX 6.1.0 and the
 [official MTEX 7.0.0 release](https://github.com/mtex-toolbox/mtex/releases/tag/mtex-7.0.0).
 No broad MTEX API rewrite was needed for these paths.
 
@@ -13,9 +13,10 @@ Adopt Philipp's `singleSlipPerPixel` correction and explicit rotation basis in
 the existing functions. Correct rotation output scaling and reject unsupported
 solver methods. Keep the existing five-input call, activity array orientation,
 and full slip-system list, avoiding the interface and indexing problems in the
-original PR. No new functions are introduced for this integration. The full
-PR's architecture and plotting reorganization remain deferred; the review
-branch `codex/philipp-pr2-review` preserves his original revision unchanged.
+original PR. That integration introduced no new library functions. Subsequent
+reorganization is being applied in separate checkpoints, beginning with the
+preprocessing separation described below. The review branch
+`codex/philipp-pr2-review` preserves his original revision unchanged.
 
 ## Validation
 
@@ -235,6 +236,53 @@ must preserve subsequent main changes, including the newer example dataset.
 - Preserve the current sample dataset and citation information during a future
   merge. The PR removes the sample MAT file and removes the paper citation
   header from the combined solver.
+
+## Reorganization checkpoint 1: preprocessing
+
+The [architecture assessment](philipp-pr2-reorganization-review.md) recommends
+separating structural changes from new analysis features. This first checkpoint
+adapts Philipp's `preprocessSSLIP` from `d3ee1a5` into the existing `src/` folder.
+`SSLIP` now calls it for grid mapping, displacement filtering, coarse-graining,
+gradient calculation, and storage of the processed fields.
+
+The helper retains the current gridify step so displacement values follow their
+coordinates, including when the input EBSD points are unordered. It accepts
+Philipp's displacement structure and preprocessing options, with defaults still
+supplied by `SSLIP`. Direct gradient input remains a separate proposed feature.
+Dimension validation now rejects a mismatch in either input dimension; the old
+vector-valued condition could miss a mismatch in only one dimension.
+
+The public five-input call, returned options, solver functions, plotting code,
+activity dimensions, and original slip-system numbering are retained. The
+existing convention that zero displacement components become NaN when filtering
+is enabled is also preserved; this is separate from zero fitted activity below
+`minEeff`. Source comments identify Philipp's contribution, and the adaptation
+commit includes his `Co-authored-by` trailer.
+
+Validation used MATLAB R2024b in separate sessions with figure windows disabled.
+
+| Check against the pre-reorganization checkpoint | MTEX 6.1.0 | MTEX 7.0.0 |
+| --- | --- | --- |
+| Focused checks, including preprocessing | Passed | Passed |
+| Ni example, rotation off | Exactly unchanged | Exactly unchanged |
+| Ni example, rotation on | Exactly unchanged | Exactly unchanged |
+| HCP example, rotation off | Exactly unchanged | Exactly unchanged |
+| HCP example, rotation on | Exactly unchanged | Exactly unchanged |
+
+The exact comparisons use each MTEX version's own baseline. They cover all
+saved activity, residual, solver-flag, gradient, coordinate, and slip-tensor
+arrays, plus rotation when enabled and the returned options. NaNs and zeros are
+included. This does not change the small cross-version differences documented
+above. Both examples also exported their activity figures and, when enabled,
+rotation figures successfully.
+
+New focused checks use known affine displacements on a shifted rectangular
+grid, shuffled EBSD points, coarse-graining, zero/missing displacement masks,
+and an input mismatch in only one dimension. These use square pixels; support
+for unequal pixel spacings under MTEX 6.1 is not established by this checkpoint.
+
+The next checkpoint will separate the small plotting routines using Philipp's
+functions while retaining the current figures and activity interpretation.
 
 ## Reproducing the checks
 

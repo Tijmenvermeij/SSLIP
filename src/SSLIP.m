@@ -168,11 +168,6 @@ end
 
 
 %% some checks
-% check if ebsd data is same size as U and V
-if size(ebsd) ~= size(U) | size(ebsd) ~= size(V)
-    error('ebsd data is not same as U and/or V')
-end
-
 % transpose sSLocal if needed 
 if length(sSLocal) > 1
     if size(sSLocal,2) ~= 1
@@ -181,63 +176,17 @@ if length(sSLocal) > 1
 end
 
 %% prepare data for SSLIP
-% include U and V, as a vector field, in ebsd and make sure data is gridded
-ebsd.prop.U = vector3d(U,V,zeros(size(U)));
-ebsd = ebsd.gridify;
+% Preprocessing separation adapted from Philipp (PhilKro), PR #2.
+% Keep the existing public displacement inputs and flat options structure.
+[data,ebsdID] = preprocessSSLIP(ebsd,struct('U',U,'V',V),opt);
+Hxx = data.Hxx;
+Hxy = data.Hxy;
+Hyx = data.Hyx;
+Hyy = data.Hyy;
+Eeff = data.Eeff;
 
 % define plotting name
 plotName = [opt.casename '_' opt.comment '_' ];
-
-% extract position grid from ebsd variable
-X = ebsd.x;
-Y = ebsd.y;
-
-% apply filtering on displacement field
-if opt.filterSize ~= 0
-    % filtersize:
-    options.filt_std = opt.filterSize;
-    
-    % replace 0 values in disp field by NaNs (some DIC codes export 0
-    % instead of NaN on non-correlated points)
-    ebsd.prop.U.x(ebsd.prop.U.x == 0) = NaN;
-    ebsd.prop.U.y(ebsd.prop.U.y == 0) = NaN;
-
-    % filter displacements
-    data = filterDisplacements(ebsd.prop.U.x,ebsd.prop.U.y,options);
-else
-    data.U = ebsd.prop.U.x;
-    data.V = ebsd.prop.U.y;
-end
-
-% coarse graining to increase speed
-crs = coarsegrainDisp(data.U,data.V,X(1,:),Y(:,1)',opt.coarsegrain);
-
-%create dummy EBDS for plotting
-ebsdID = dummyEBSDSimple(ebsd.orientations(1),crs.X,crs.Y);
-
-% store displacement field after coarsegraining
-data.U = crs.f;
-data.V = crs.g;
-
-% calculate numerical gradients (displacement gradient tensor components)
-[Hxx, Hxy] = gradient(data.U,crs.pixelsize(1),crs.pixelsize(2));
-[Hyx, Hyy] = gradient(data.V,crs.pixelsize(1),crs.pixelsize(2));
-
-
-% calc effective shear strain (for plotting purposes)
-Eeff = calcEffectiveE(Hxx,Hxy,Hyx,Hyy);
-
-% store data in the coarsegrained ebsd variable
-ebsdID.prop.Eeff = Eeff;
-
-% store other fields in PLOTEBSD
-ebsdID.prop.U = data.U;
-ebsdID.prop.V = data.V;
-
-ebsdID.prop.Hxx = Hxx;
-ebsdID.prop.Hxy = Hxy;
-ebsdID.prop.Hyx = Hyx;
-ebsdID.prop.Hyy = Hyy;
 
 % plot some fields (just for visualization and to check filtering)
 if opt.plotDefGrad
@@ -403,6 +352,5 @@ ebsdID.prop.slipIDcor = slipIDcor;
 
 
 end
-
 
 
