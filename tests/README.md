@@ -53,6 +53,11 @@ and strict rejection at the residual threshold. They retain method 3's existing
 behavior for low-strain and missing pixels; method 1's `minEeff` cutoff is not
 applied to the single-slip fit.
 
+Activity-plot checks cover the separate saved-result call, reordered original
+system labels, shared color limits, and unchanged input arrays/tensors. The
+combined plotter continues to accept explicit activity and residual arrays,
+and its existing trace-layout checks exercise the activity helper.
+
 Separate plotting checks cover custom deformation limits, logarithmic shared
 residual scales, use of the supplied residual when stored data differs, rotation
 display in degrees without changing the saved radians, missing rotation data,

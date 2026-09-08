@@ -614,6 +614,35 @@ and 7.0.0: the focused checks and both default Ni/HCP examples run successfully.
 Their numerical results, physical option values, and exported activity PNGs
 match the checkpoint-6 baseline exactly. Figure windows remained disabled.
 
+## Reorganization checkpoint 7: ordinary activity plotting
+
+Philipp's `plotSSLIP_SlipActivities(ebsdID,sSLocal,opt)` from `d3ee1a5` is now
+adapted as the separate activity plotter. It reads the saved physical activity
+rows in `opt.NoSs` order. The existing combined `plotSSLIP` delegates activity
+drawing to it and still plots residuals when requested. Its optional color-limit
+output preserves the shared residual-scale behavior.
+
+The plotting body retains the existing maps, titles, traces, signed/logarithmic
+display, layout branches, and export names. Both examples include the direct
+saved-result call alongside the existing replotting examples. This checkpoint
+does not enable grouping, percentile clipping, reporting, or dominant ranking.
+
+On MTEX 6.1.0 and 7.0.0, the focused checks and both default examples pass with
+unchanged numerical results, physical options, and final activity PNGs.
+Replotting saved rotation-enabled Ni/HCP results with all systems and the
+reordered subset `[3 1]` gives eight before/after figure pairs with identical
+graphics properties and PNG pixels. Checks also cover the direct saved-input
+call, unchanged input arrays/tensors, original labels, residual scale sharing,
+and all three trace-layout branches. All MATLAB runs disable figure windows.
+
+The [grouping and ranking review](activity-grouping-and-ranking-review.md)
+defines the remaining choices with controlled examples and rank summaries of
+the existing Ni/HCP fits. In particular, the PR's default P85 threshold would
+place every virtual HCP system in the leftover map; mean projected contribution
+instead ranks its generated systems `[3 7 19]` first. This is evidence for a
+subsequent dominant-plot adaptation, not a change to the current solver or plots.
+Source references and a `Co-authored-by` trailer retain Philipp's contribution.
+
 ## Reproducing the checks
 
 See [tests/README.md](../tests/README.md). The example runner saves numeric

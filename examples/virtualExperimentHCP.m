@@ -301,6 +301,7 @@ mtexColorbar
 % [ebsdFromH,optFromH,sSFromH] = SSLIP(ebsdID,gradientData,sSLocal,gradientOptions);
 
 % %%% potentially, for replotting:
+% plotSSLIP_SlipActivities(ebsdID,sSLocal,optOut);
 % plotSSLIP(ebsdID.prop.slipIDcor,ebsdID.prop.residualEeff,ebsdID,sSLocal,optOut)
 % plotSSLIP_DeformationFields(ebsdID,optOut);
 % plotSSLIP_Residual(ebsdID,optOut);

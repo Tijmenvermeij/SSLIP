@@ -455,6 +455,24 @@ fprintf('PASS: rotation output mapping, selected-system labels, and unsupported-
 popt = struct('stress',stressTensor.uniaxial(xvector),'NoSs',1, ...
     'layout',[], 'plotTraces',0, 'logscale',0, 'posConstr',0, ...
     'maxE',1, 'saveFig',0, 'cmap',parula(256),'plotResidual',1,'IDMethod',1);
+% The separate activity plotter reads saved rows in original NoSs order and
+% draws only activity maps, even when opt.plotResidual is enabled.
+savedActivities = ebsd;
+savedGamma = [linspace(-.2,.1,16);linspace(.3,.4,16)];
+savedActivities.prop.slipIDcor = savedGamma;
+savedPlotOptions = popt;
+savedPlotOptions.NoSs = [2 1];
+savedTensors = sRotation.deformationTensor.matrix;
+activityLimits = plotSSLIP_SlipActivities(savedActivities,sRotation,savedPlotOptions);
+activityAxes = findall(gcf,'Type','axes');
+assert(numel(activityAxes)==2 && isequal(activityLimits,[-1 1]));
+assert(any(arrayfun(@(a) strcmp(a.Title.String,'#2-SF=0.5'),activityAxes)));
+assert(any(arrayfun(@(a) strcmp(a.Title.String,'#1-SF=0'),activityAxes)));
+assert(isequal(savedActivities.prop.slipIDcor,savedGamma));
+assert(isequal(sRotation.deformationTensor.matrix,savedTensors));
+close all;
+fprintf('PASS: saved activity plotting, selected-system labels, limits, and unchanged inputs.\n');
+
 residualCases = {ones(16,1)*.02, zeros(16,1), NaN(16,1), ...
     [.01;.03;NaN;Inf;zeros(12,1)]};
 expectedMax = [.02 1 1 .03];
@@ -470,6 +488,7 @@ fprintf('PASS: residual plots with constant, zero, missing, and nonfinite values
 % residual argument, even if the EBSD object contains an older residual.
 staleResidual = ebsd;
 staleResidual.prop.residualEeff = ones(16,1)*9;
+staleResidual.prop.slipIDcor = ones(1,16)*9;
 popt.residualScaleSame = 1;
 popt.logscale = 1;
 popt.logmin = .01;

@@ -28,7 +28,7 @@ Please report any bugs you encounter. Instructions for the [regression checks an
 
 **Philipp ([PhilKro](https://github.com/PhilKro))** contributed the single-slip
 selection correction, explicit rotation support, and separation of preprocessing,
-single-slip solving, and the small plotting routines adopted from
+single-slip solving, and the plotting routines adopted from
 [PR #2](https://github.com/Tijmenvermeij/SSLIP/pull/2). The adapted commits retain
 his co-author credit; the [integration notes](docs/mtex7-and-pr2-review.md)
 identify his original commits and the corrections made during integration.
@@ -156,10 +156,11 @@ no `U` or `V`, and the deformation figure shows the five available fields.
 
 # Replot saved results
 
-The `ebsdID` and `optOut` variables saved by the examples can now be used to
-redraw individual figures without rerunning identification:
+The `ebsdID`, `sSLocal`, and `optOut` variables saved by the examples can be
+used to redraw individual figures without rerunning identification:
 
 ```matlab
+plotSSLIP_SlipActivities(ebsdID,sSLocal,optOut);
 plotSSLIP_DeformationFields(ebsdID,optOut);
 plotSSLIP_Residual(ebsdID,optOut);
 rotationFigure = plotSSLIP_Rotation(ebsdID,optOut);
@@ -168,7 +169,9 @@ rotationFigure = plotSSLIP_Rotation(ebsdID,optOut);
 These retain the existing figure scales and export filenames. Rotation is
 displayed in degrees; the stored values stay in radians. If no rotation field
 is present, the rotation plotter returns an empty handle and creates no figure.
-The existing `plotSSLIP` call still draws the activity maps and optional residual.
+The existing `plotSSLIP` call draws the same activity maps and optional residual.
+The separate activity plotter uses the saved physical activity rows in `NoSs`
+order; it does not group or rank systems.
 
 # How to cite SSLIP
 If you have applied the SSLIP analyses to your research, please cite this open-access paper as your reference:
