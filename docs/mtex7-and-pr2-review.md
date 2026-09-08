@@ -529,6 +529,9 @@ Philipp. Activity grouping/ranking and folder organization remain separate steps
 
 ## Reorganization checkpoint 6: folders and initialization
 
+The initializer described in this historical checkpoint was subsequently
+removed; use the [direct folder setup](#direct-folder-setup) below.
+
 This checkpoint adopts Philipp's folder layout and `initSSLIP` from
 [`d3ee1a5`](https://github.com/PhilKro/SSLIP/commit/d3ee1a54eb9f8248565e0063060e749f9f56b9ce).
 The ten relocated functions retain their exact bytes, including existing author
@@ -590,6 +593,26 @@ All runs used disabled figure windows. The supplied Ni dataset remains tracked,
 and local literature remains ignored. Source references and the adaptation
 commit's `Co-authored-by` trailer retain Philipp's contribution credit.
 Activity grouping and dominant-system ranking remain separate proposals.
+
+## Direct folder setup
+
+Following review, the separate `initSSLIP` wrapper was removed. It only added
+folders to the MATLAB path; the examples and checks now do that directly:
+
+```matlab
+addpath(genpath(fullfile(sslipRoot,'src')));
+```
+
+The examples still add `examples/utils` separately and locate code and data
+relative to their own files. Philipp's folder layout and contribution history
+remain intact. The example runner no longer copies or expects an initializer;
+it still verifies that every SSLIP dependency resolves in its temporary copy.
+The README documents the equivalent one-line setup for user analysis scripts.
+
+Validation from a clean copy containing no `initSSLIP.m` passed on MTEX 6.1.0
+and 7.0.0: the focused checks and both default Ni/HCP examples run successfully.
+Their numerical results, physical option values, and exported activity PNGs
+match the checkpoint-6 baseline exactly. Figure windows remained disabled.
 
 ## Reproducing the checks
 

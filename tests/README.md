@@ -21,8 +21,8 @@ addpath('/path/to/SSLIP/tests');
 runSSLIPChecks;
 ```
 
-The checks call the repository's `initSSLIP` automatically to load the source,
-plotting, and utility folders. Adding only `src` is no longer sufficient.
+The checks add `src` and its subfolders with `addpath(genpath(...))`
+automatically. No separate initialization function is required.
 
 Requires Optimization, Parallel Computing, and Image Processing Toolboxes. The checks use
 real `coneprog` solves but disable automatic pool creation temporarily, restoring
@@ -70,9 +70,8 @@ of crystallographic slip systems.
 ## Full examples
 
 The example runner also requires Image Processing Toolbox. It copies the code,
-initializer, example scripts and helpers, and sample data into a temporary
-working folder inside the
-specified output directory, then runs both complete examples. It saves numeric
+example scripts and helpers, and sample data into a temporary working folder
+inside the specified output directory, then runs both complete examples. It saves numeric
 results, including solver exit flags, and an image of each final activity plot.
 After each example, it verifies that every SSLIP function and example helper
 resolves inside the temporary copy. This catches missing paths or accidental

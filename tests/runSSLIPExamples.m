@@ -32,7 +32,6 @@ poolSetting.TemporaryValue = false;
 % Keep example-generated files out of the source checkout.
 work = tempname(outputDirectory);
 mkdir(work);
-copyfile(fullfile(root,'initSSLIP.m'),fullfile(work,'initSSLIP.m'));
 copyfile(fullfile(root,'src'),fullfile(work,'src'));
 copyfile(fullfile(root,'examples'),fullfile(work,'examples'));
 mkdir(fullfile(work,'data'));
@@ -54,8 +53,7 @@ for script = {'NiSuperAlloyExperiment','virtualExperimentHCP'}
     [result,rotationFigure] = runExample(scriptPath);
     % Confirm the copied examples resolve every SSLIP dependency locally,
     % including the moved helpers, rather than another checkout on the path.
-    requiredFiles = [dir(fullfile(work,'initSSLIP.m')); ...
-        dir(fullfile(work,'src','*.m')); ...
+    requiredFiles = [dir(fullfile(work,'src','*.m')); ...
         dir(fullfile(work,'src','plotting','*.m')); ...
         dir(fullfile(work,'src','utils','*.m')); ...
         dir(fullfile(work,'examples','utils','*.m'))];

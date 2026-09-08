@@ -11,7 +11,7 @@ The **SSLIP** function library is written in [**MATLAB**](https://mathworks.com/
 **Requires MTEX 6.1 or later. The regression checks and both examples have been tested with MTEX 6.1.0 and the official MTEX 7.0.0 release using MATLAB R2024b.** See the [validation results and numerical limitations](docs/mtex7-and-pr2-review.md).
 
 Both MTEX versions use the same functions and options. Initialize your chosen
-MTEX version in a fresh MATLAB session, then initialize SSLIP as shown below.
+MTEX version in a fresh MATLAB session, then add the SSLIP folders as shown below.
 For a quick compatibility check, add `tests/` to the MATLAB path and run
 `runSSLIPChecks` ([background-run instructions](tests/README.md)).
 
@@ -32,29 +32,24 @@ single-slip solving, and the small plotting routines adopted from
 [PR #2](https://github.com/Tijmenvermeij/SSLIP/pull/2). The adapted commits retain
 his co-author credit; the [integration notes](docs/mtex7-and-pr2-review.md)
 identify his original commits and the corrections made during integration.
-The structured displacement/gradient input, automatic stress alignment, folder
-layout, and `initSSLIP` initializer are also adapted from his PR.
+The structured displacement/gradient input, automatic stress alignment, and
+folder layout are also adapted from his PR.
 
 # Getting started
 
-Start your chosen MTEX version, then add the SSLIP repository root and run
-Philipp's initializer:
+Start your chosen MTEX version, then add the SSLIP source folder and its
+subfolders to the MATLAB path:
 
 ```matlab
-addpath('/path/to/SSLIP');
-initSSLIP;
+addpath(genpath('/path/to/SSLIP/src'));
 ```
 
-This adds `src`, `src/plotting`, and `src/utils` for the current session.
-Replace old `addpath('/path/to/SSLIP/src')` setup with the two lines above;
-adding only `src` no longer includes the moved plotting and utility functions.
-The initializer leaves MTEX selection, the working directory, and the saved
-MATLAB path to the caller.
+This includes the plotting and shared utility folders for the current session.
+The examples add their own source and helper paths automatically.
 
 The adopted folder layout is:
 
 ```text
-initSSLIP.m       Library initialization
 src/             SSLIP entry point, preprocessing, and solvers
 src/plotting/    Activity, deformation, residual, and rotation plots
 src/utils/       Shared numerical and grid helpers
@@ -73,9 +68,9 @@ run('/path/to/SSLIP/examples/NiSuperAlloyExperiment.m');
 run('/path/to/SSLIP/examples/virtualExperimentHCP.m');
 ```
 
-The scripts initialize SSLIP and add their own example helpers. They locate
-code and data relative to the script file, so input lookup does not depend
-on the current working directory. Both scripts clear workspace variables and
+The scripts add the SSLIP source folders and their own example helpers. They
+locate code and data relative to the script file, so input lookup does not
+depend on the current working directory. Both scripts clear workspace variables and
 close figures before running.
 
 Results are saved in the directory where the script executes. MATLAB's `run`

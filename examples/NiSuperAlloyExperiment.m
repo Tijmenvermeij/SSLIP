@@ -24,8 +24,8 @@ close all
 % Resolve library and example helpers from this script's location.
 exampleDir = fileparts(mfilename('fullpath'));
 sslipRoot = fileparts(exampleDir);
-addpath(sslipRoot,fullfile(exampleDir,'utils'));
-initSSLIP;
+addpath(genpath(fullfile(sslipRoot,'src')));
+addpath(fullfile(exampleDir,'utils'));
 
 % load aligned data
 load(fullfile(sslipRoot,'data','NiSuperAloy_Aligned.mat'));

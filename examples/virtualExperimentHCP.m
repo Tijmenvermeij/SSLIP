@@ -22,8 +22,8 @@ close all
 % Resolve library and example helpers from this script's location.
 exampleDir = fileparts(mfilename('fullpath'));
 sslipRoot = fileparts(exampleDir);
-addpath(sslipRoot,fullfile(exampleDir,'utils'));
-initSSLIP;
+addpath(genpath(fullfile(sslipRoot,'src')));
+addpath(fullfile(exampleDir,'utils'));
 
 plotx2east
 plotzIntoPlane
