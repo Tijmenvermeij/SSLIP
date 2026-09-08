@@ -1,11 +1,11 @@
-function [ebsdID,opt] = SSLIP(ebsd,U,V,sSLocal,opt)
+function [ebsdID,opt,sSLocal] = SSLIP(ebsd,U,V,sSLocal,opt)
 %% Function to Perform SSLIP (Slip System based Identification of Local Plasticity)
 % For a list of slip systems (of a single crystal), with
 % input a displacement field, compute slip system activity fields.
 %
 % Syntax
-%   [PLOTEBSD,opt] = SSLIP(ebsd,U,V,sSLocal,opt)
-%   [PLOTEBSD,opt] = SSLIP(ebsd,DeformationData,sSLocal,opt)
+%   [PLOTEBSD,opt,sSLocal] = SSLIP(ebsd,U,V,sSLocal,opt)
+%   [PLOTEBSD,opt,sSLocal] = SSLIP(ebsd,DeformationData,sSLocal,opt)
 %   DeformationData contains either U,V or Hxx,Hxy,Hyx,Hyy.
 %   Supplied gradients are ready for fitting, aligned with ebsd; use
 %   filterSize = 0 (the gradient-input default) and coarsegrain = 1.
@@ -26,7 +26,9 @@ function [ebsdID,opt] = SSLIP(ebsd,U,V,sSLocal,opt)
 %   With opt.enableRotation, prop.rotationIDcor contains signed small-angle
 %   rotation in radians (one value per pixel); prop.slipIDcor retains only
 %   physical slip systems, in opt.NoSs order.
-%   opt         - struct with options, updated with defaults where applicable. 
+%   opt         - struct with options, updated with defaults where applicable.
+%   sSLocal     - full slip-system list after any stress alignment. Save this
+%                 with the fit; activity rows correspond to sSLocal(opt.NoSs).
 
 % This function contains the SSLIP method as proposed in the paper 
 % "T. Vermeij et al., Automated identification of slip system activity
@@ -113,11 +115,11 @@ if ~isfield(opt,'NoSs')
     opt.NoSs = 1:length(sSLocal);
 end
 
-% Positive constraint: constrain the slip amplitudes to be positive. This
-% only works well if the slip systems are "configured" to have a positive
-% amplitude under a certain load (which is normally assured in the main
-% script, assuming e.g. uniaxial tension).
-% How to "reconfigure" the slip system under complex loads is T.B.D.
+% Positive constraint: constrain slip amplitudes to be nonnegative.
+% For methods 1 and 2, opt.stress aligns each slip direction with the resolved
+% shear stress. Supply one stressTensor in specimen coordinates or a vector3d
+% tension direction. Without stress, the caller must orient the systems.
+% Method 3 always uses signed activities and does not align the systems.
 if ~isfield(opt,'posConstr')
     opt.posConstr = 0;
 end
@@ -193,6 +195,39 @@ end
 if length(sSLocal) > 1
     if size(sSLocal,2) ~= 1
         sSLocal = transpose(sSLocal);
+    end
+end
+
+%% orient slip directions for positive-constrained fits
+% Adapted from Philipp (PhilKro), PR #2, commit 9c393a3:
+% https://github.com/Tijmenvermeij/SSLIP/pull/2
+% Return the full aligned list so NoSs still refers to the original labels.
+% Method 3 switches posConstr off, so it must keep the supplied directions.
+if opt.posConstr && any(opt.IDMethod == [1 2])
+    if isfield(opt,'stress') && ~isempty(opt.stress)
+        if isa(opt.stress,'stressTensor')
+            sig = opt.stress;
+        elseif isa(opt.stress,'vector3d')
+            direction = opt.stress;
+            if ~isscalar(direction) || any(~isfinite([direction.x direction.y direction.z])) || norm(direction) == 0
+                error('SSLIP:InvalidStressValue','Supply one finite, nonzero tension direction.');
+            end
+            sig = stressTensor.uniaxial(direction);
+        else
+            error('SSLIP:InvalidStressType','opt.stress must be a stressTensor or vector3d.');
+        end
+        if ~isscalar(sig) || any(~isfinite(sig.matrix),'all')
+            error('SSLIP:InvalidStressValue','Supply one finite stress tensor in specimen coordinates.');
+        end
+        % Use the physical tensor contraction, without Schmid-factor or CRSS
+        % normalization. Zero resolved shear leaves the direction unchanged.
+        resolvedShear = sig : transpose(sSLocal.deformationTensor);
+        directionSigns = reshape(sign(resolvedShear),size(sSLocal));
+        directionSigns(directionSigns == 0) = 1;
+        sSLocal.b = directionSigns .* sSLocal.b;
+    else
+        warning('SSLIP:MissingStress', ...
+            'posConstr is enabled without opt.stress; using the supplied slip directions.');
     end
 end
 

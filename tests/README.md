@@ -28,6 +28,12 @@ tolerances, the noise floor, signed and positive activity, skipped/invalid pixel
 infeasible fits, per-pixel solver exit flags, single-slip filtering and selection,
 residual color scales, and all three trace plotting layouts.
 
+Stress-alignment checks cover a general stress tensor, equivalent uniaxial
+vector/tensor inputs, reordered subsets, the full returned fitting basis,
+unchanged CRSS, normalized activities, rotation, and reconstruction for methods
+1 and 2. They also check zero resolved shear, zero stress, unchanged signed
+fits and method 3, invalid inputs, and the warning when stress is omitted.
+
 Preprocessing checks cover affine gradients on a shifted rectangular grid, shuffled
 EBSD input, coarse-graining, zero and missing displacement values with filtering
 off and on, and rejection of mismatched displacement dimensions.

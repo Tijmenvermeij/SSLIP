@@ -452,6 +452,81 @@ gradient fields, automatic stress alignment, and activity grouping/ranking
 remain separate proposals. Source references and the feature commit's
 `Co-authored-by` trailer retain Philipp's contribution credit.
 
+## Feature checkpoint 5: stress alignment for positive activity
+
+This checkpoint adapts Philipp's stress-alignment block from
+[`9c393a3`](https://github.com/PhilKro/SSLIP/commit/9c393a3b41951f546cb1c04a95cd1ef294053176).
+For methods 1 and 2 with `posConstr = 1`, `opt.stress` determines the signs of
+the slip directions. A single `stressTensor` is interpreted in specimen
+coordinates; a single nonzero `vector3d` specifies uniaxial tension.
+The physical contraction of stress with each deformation tensor supplies the
+resolved-shear sign. Negative signs flip `b`; exactly zero signs leave the
+system intact. There is no Schmid-factor or CRSS normalization of this sign
+calculation, and stress magnitude does not weight the objective.
+
+The block is integrated directly into `SSLIP`, with flat options and no new
+library function or version-specific path. It validates the stress type and
+rejects nonfinite values, lists of stresses, and zero tension directions.
+Without stress, it retains Philipp's warning and uses the caller's directions.
+Signed fits do not align systems. Method 3 also skips alignment because it
+switches `posConstr` off; flipping directions beforehand would needlessly
+change its signed output. Rotation remains signed under positive slip bounds.
+
+### Returned systems and adapted examples
+
+The fitting basis is now available as a third output:
+
+```matlab
+[ebsdID,optOut,sSLocal] = SSLIP(ebsd,U,V,sSLocal,opt);
+```
+
+This is the **full column list**, including unselected systems, after alignment.
+Activity rows still follow `optOut.NoSs`, which refers to the original labels.
+Returning the full list avoids the original PR's selected-list/index mismatch.
+Both displacement and structured-input calls expose the same output.
+
+Both examples explicitly provide their uniaxial tensile stress and save the
+returned systems with the numerical results. They retain their original signed
+fit by default. The HCP example still sets its slip signs before generating
+synthetic displacements; the stress-alignment step applies when fitting.
+
+The saved list now has column orientation. Consequently, its numeric tensor
+array has size `3 x 3 x N` rather than `3 x 3 x 1 x N`. A first strict storage
+comparison caught this expected change; comparing each physical `3 x 3` tensor
+confirmed identical entries and system order. No row-orientation compatibility
+adapter was added. Returned example options now explicitly include `stress`.
+
+### Validation
+
+The focused checks pass on MTEX 6.1.0 and official 7.0.0. They exercise a general
+stress tensor, uniaxial vector/tensor equivalence, reordered subsets, unchanged
+CRSS, normalized coefficients, rotation, and reconstruction from the returned
+systems for methods 1 and 2. Additional checks cover zero resolved shear, zero
+stress, signed fitting, method 3, malformed inputs, and the missing-stress warning.
+
+Both complete Ni and HCP examples, with rotation off and on, retain their
+activities, residuals, solver flags, gradients, coordinates, and optional
+rotation arrays exactly against each MTEX version's checkpoint-4 baseline.
+The physical tensors also match exactly after accounting for list orientation;
+the only option change is the explicitly supplied stress.
+
+Positive-constrained refits of both examples on MTEX 7, with rotation off and
+on, also exactly match fits using their existing manually oriented systems
+without automatic alignment. The returned physical tensors are identical.
+
+A controlled 63-pixel example on MTEX 7 imposes negative xy shear and a signed
+rotation field. With the original slip direction and positive activity bounds,
+no pixel has a feasible fit. After stress alignment, all 63 pixels solve
+successfully. The maximum slip-activity error is `1.51e-6`; the maximum rotation
+error is `1.05e-6` radians. These are known-input checks of a small independent
+basis, not a claim of unique slip identification in the full examples.
+
+All MATLAB runs disable figure windows. MTEX 7's local startup reports a
+help-search indexing error after setting its paths and preferences; the SSLIP
+checks and example calculations themselves complete successfully.
+Source references and the feature commit's `Co-authored-by` trailer credit
+Philipp. Activity grouping/ranking and folder organization remain separate steps.
+
 ## Reproducing the checks
 
 See [tests/README.md](../tests/README.md). The example runner saves numeric

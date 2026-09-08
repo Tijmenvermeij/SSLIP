@@ -32,7 +32,8 @@ single-slip solving, and the small plotting routines adopted from
 [PR #2](https://github.com/Tijmenvermeij/SSLIP/pull/2). The adapted commits retain
 his co-author credit; the [integration notes](docs/mtex7-and-pr2-review.md)
 identify his original commits and the corrections made during integration.
-The structured displacement/gradient input is also adapted from his PR.
+The structured displacement/gradient input and automatic stress alignment are
+also adapted from his PR.
 
 # Optional rotation correction
 
@@ -55,16 +56,43 @@ It retains the PR's L1 penalty on rotation and does not implement the full
 Radon and slip-pair selection workflow from that paper. See the
 [formulation and normalization details](docs/mtex7-and-pr2-review.md#selected-rotation-integration).
 
+# Slip signs for positive activity
+
+For methods 1 and 2, set `opt.posConstr = 1` and supply `opt.stress` to use
+Philipp's automatic alignment. SSLIP flips each Burgers vector when its
+resolved shear stress is negative. Supply one `stressTensor` in specimen
+coordinates, or one `vector3d` for a uniaxial tension direction:
+
+```matlab
+opt.posConstr = 1;
+opt.stress = stressTensor.uniaxial(xvector);
+[ebsdID,optOut,sSLocal] = SSLIP(ebsd,U,V,sSLocal,opt);
+save(optOut.plotname,'ebsdID','optOut','sSLocal');
+```
+
+The third output is the **full list of systems after alignment**. Save and use
+it for reconstruction and plotting; activity row `k` belongs to
+`sSLocal(optOut.NoSs(k))`. This also works with the structured input below.
+Both examples now capture and save this output and specify their tensile load.
+
+Only the sign of the resolved shear is used; stress magnitude does not weight
+the fit. Systems with exactly zero resolved shear retain their direction.
+Without `opt.stress`, a positive-constrained fit warns and uses the supplied
+systems. Signed fits (`posConstr = 0`) retain the supplied directions; method 3
+also retains them because it always switches the positive constraint off.
+Rotation remains signed. Use a negative stress tensor to represent compression;
+negating a tension direction still represents the same uniaxial tension.
+
 # Input from displacement gradients
 
 The original `SSLIP(ebsd,U,V,sSLocal,opt)` call is retained. Philipp's structured
-input form is now also supported, with the same two outputs and flat options:
+input form is also supported, with flat options:
 
 ```matlab
 deformationData = struct('Hxx',Hxx,'Hxy',Hxy,'Hyx',Hyx,'Hyy',Hyy);
 opt.filterSize = 0;
 opt.coarsegrain = 1;
-[ebsdID,optOut] = SSLIP(ebsd,deformationData,sSLocal,opt);
+[ebsdID,optOut,sSLocal] = SSLIP(ebsd,deformationData,sSLocal,opt);
 ```
 
 Supply displacement gradients: `Hxx = dU/dx`, `Hxy = dU/dy`, `Hyx = dV/dx`,

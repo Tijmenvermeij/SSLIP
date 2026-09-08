@@ -130,12 +130,11 @@ IDoptions.threshResidual = 0.005;
 % pixels with low strain)
 IDoptions.minEeff = 0.01;
 
-% Positive constraint: choose to constrain the slip amplitudes to be positive or not. This
-% only works well if the slip systems are "configured" to have a positive
-% amplitude under a certain load (which is normally assured in the main
-% script, assuming e.g. uniaxial tension).
-% How to "reconfigure" the slip system under complex loads is T.B.D.
+% Set to 1 to constrain slip activity to be nonnegative. SSLIP then aligns
+% slip directions with this stress state (Philipp's stress-alignment option).
+% The stress also determines the Schmid factors shown in the plots.
 IDoptions.posConstr = 0;
+IDoptions.stress = stressTensor.uniaxial(loadDir);
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -208,9 +207,9 @@ if IDoptions.enableRotation
 end
 
 %%% perform SSLIP analysis
-[ebsdID,optOut] = SSLIP(ebsd,U,V,sSLocal,IDoptions);
+[ebsdID,optOut,sSLocal] = SSLIP(ebsd,U,V,sSLocal,IDoptions);
 
-%%% save the results in a matfile
+%%% save the results with the slip directions actually used in the fit
 save(optOut.plotname,'ebsdID','sSLocal','optOut');
 
 % Rotation is stored separately from slip activity, in radians.
@@ -237,7 +236,7 @@ mtexColorbar
 % gradientOptions.filterSize = 0;
 % gradientOptions.coarsegrain = 1;
 % gradientOptions.casename = [optOut.casename '_fromH'];
-% [ebsdFromH,optFromH] = SSLIP(ebsdID,gradientData,sSLocal,gradientOptions);
+% [ebsdFromH,optFromH,sSFromH] = SSLIP(ebsdID,gradientData,sSLocal,gradientOptions);
 
 % %%% potentially, for replotting:
 % plotSSLIP(ebsdID.prop.slipIDcor,ebsdID.prop.residualEeff,ebsdID,sSLocal,optOut)

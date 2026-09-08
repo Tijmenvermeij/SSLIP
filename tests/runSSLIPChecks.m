@@ -119,6 +119,100 @@ CS = crystalSymmetry('m-3m');
 ori = orientation.byEuler(0,0,0,CS);
 ebsd = dummyEBSDSimple(ori,X,Y);
 
+% Philipp's stress alignment must return the actual fitting basis, retaining
+% the full list and original NoSs labels even for a reordered subset.
+stressSystems = [sRotation(1); slipSystem(xvector,zvector); sRotation(2)];
+stressSystems.CRSS = [0;2;3];
+originalTensors = stressSystems.deformationTensor.matrix;
+stressOpt = struct('IDMethod',1,'posConstr',1,'minEeff',0, ...
+    'threshResidual',1e-6,'filterSize',0,'coarsegrain',1, ...
+    'plotSSLIP',0,'plotDefGrad',0,'saveFig',0,'NoSs',[3 1], ...
+    'stress',stressTensor([2 -1 .4;-1 -2 .2;.4 .2 .5]));
+% Independently specified signs: resolved shear is negative for system 1,
+% positive for systems 2 and 3. The fitted order is system 3 then system 1.
+alignedA = [physicalA(:,2),-physicalA(:,1)];
+stressGamma = [.12;.21];
+for normalized = 0:1
+    stressOpt.normalizeInplane = normalized;
+    fitA = alignedA;
+    if normalized, fitA = fitA ./ vecnorm(fitA); end
+    for method = [1 2]
+        stressOpt.IDMethod = method;
+        stressOpt.enableRotation = method == 1;
+        theta = -.025*stressOpt.enableRotation;
+        stressH = fitA*stressGamma + rotationBasis*theta;
+        stressData = struct('Hxx',ones(size(X))*stressH(1), ...
+            'Hxy',ones(size(X))*stressH(2),'Hyx',ones(size(X))*stressH(3), ...
+            'Hyy',ones(size(X))*stressH(4));
+        [stressFit,stressOut,alignedSystems] = SSLIP(ebsd,stressData,stressSystems.',stressOpt);
+        assert(isequal(size(alignedSystems),[3 1]) && isequal(stressOut.NoSs,[3 1]));
+        assert(isequal(alignedSystems.CRSS,stressSystems.CRSS));
+        expectedTensors = originalTensors;
+        expectedTensors(:,:,1) = -expectedTensors(:,:,1);
+        assert(isequal(alignedSystems.deformationTensor.matrix,expectedTensors));
+        assert(isequal(stressSystems.deformationTensor.matrix,originalTensors));
+        assert(max(abs(stressFit.prop.slipIDcor-stressGamma),[],'all') < 2e-5);
+        fittedTensors = alignedSystems(stressOut.NoSs).deformationTensor.matrix;
+        returnedA = [reshape(fittedTensors(1,1,:),1,[]); reshape(fittedTensors(1,2,:),1,[]); ...
+            reshape(fittedTensors(2,1,:),1,[]); reshape(fittedTensors(2,2,:),1,[])];
+        if normalized, returnedA = returnedA ./ vecnorm(returnedA); end
+        reconstructed = returnedA*stressFit.prop.slipIDcor;
+        if method == 1
+            assert(all(stressFit.prop.solverExitFlag == 1));
+            assert(max(abs(stressFit.prop.rotationIDcor-theta)) < 2e-5);
+            reconstructed = reconstructed + rotationBasis*stressFit.prop.rotationIDcor';
+        end
+        assert(max(abs(reconstructed-stressH),[],'all') < 2e-5);
+    end
+end
+
+% A vector3d is equivalent to uniaxial tension. Zero resolved shear must not
+% erase a direction, and zero stress must leave every system unchanged.
+stressOpt.IDMethod = 2; stressOpt.enableRotation = 0;
+stressOpt.stress = vector3d(1,-2,0);
+[vectorFit,~,vectorSystems] = SSLIP(ebsd,stressData,stressSystems,stressOpt);
+stressOpt.stress = stressTensor.uniaxial(stressOpt.stress);
+[tensorFit,~,tensorSystems] = SSLIP(ebsd,stressData,stressSystems,stressOpt);
+assert(isequaln(vectorFit.prop,tensorFit.prop));
+assert(isequal(vectorSystems.deformationTensor.matrix,tensorSystems.deformationTensor.matrix));
+expectedTensors = originalTensors;
+expectedTensors(:,:,[1 3]) = -expectedTensors(:,:,[1 3]);
+assert(isequal(vectorSystems.deformationTensor.matrix,expectedTensors));
+stressOpt.stress = stressTensor(zeros(3));
+[~,~,zeroStressSystems] = SSLIP(ebsd,stressData,stressSystems,stressOpt);
+assert(isequal(zeroStressSystems.deformationTensor.matrix,originalTensors));
+
+% Signed methods must retain supplied signs even when a stress is present.
+% Method 3 disables posConstr before solving, so alignment must not run there.
+stressOpt.stress = stressTensor([2 -1 .4;-1 -2 .2;.4 .2 .5]);
+stressOpt.IDMethod = 1; stressOpt.posConstr = 0;
+[signedFit,~,signedSystems] = SSLIP(ebsd,stressData,stressSystems,stressOpt);
+assert(isequal(signedSystems.deformationTensor.matrix,originalTensors));
+assert(max(abs(signedFit.prop.slipIDcor-[.12;-.21]),[],'all') < 2e-5);
+stressOpt.IDMethod = 3; stressOpt.posConstr = 1; stressOpt.threshResidual = 1;
+[~,singleStressOut,singleStressSystems] = SSLIP(ebsd,stressData,stressSystems,stressOpt);
+assert(singleStressOut.posConstr == 0);
+assert(isequal(singleStressSystems.deformationTensor.matrix,originalTensors));
+
+stressOpt.IDMethod = 2;
+for invalidStress = {eye(3),vector3d(0,0,0),[xvector;yvector],stressTensor(cat(3,eye(3),eye(3)))}
+    stressOpt.stress = invalidStress{1};
+    caught = false;
+    try
+        SSLIP(ebsd,stressData,stressSystems,stressOpt);
+    catch exception
+        caught = any(strcmp(exception.identifier,{'SSLIP:InvalidStressType','SSLIP:InvalidStressValue'}));
+    end
+    assert(caught,'Invalid stress must be rejected for positive-constrained fits.');
+end
+stressOpt = rmfield(stressOpt,'stress');
+lastwarn('');
+[~,~,manualSystems] = SSLIP(ebsd,stressData,stressSystems,stressOpt);
+[~,warningId] = lastwarn;
+assert(strcmp(warningId,'SSLIP:MissingStress'));
+assert(isequal(manualSystems.deformationTensor.matrix,originalTensors));
+fprintf('PASS: stress alignment, returned basis, subsets, signed modes, rotation, zero shear, and input validation.\n');
+
 % Preprocessing must preserve gradients and coordinate ordering on a shifted
 % rectangular grid, including shuffled EBSD points and coarse-grained data.
 [prepX,prepY] = meshgrid(2:2:20,-9:2:5);
