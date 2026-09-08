@@ -21,10 +21,14 @@
 clear
 close all
 
-addpath(fullfile(pwd,'..','src'));
+% Resolve library and example helpers from this script's location.
+exampleDir = fileparts(mfilename('fullpath'));
+sslipRoot = fileparts(exampleDir);
+addpath(sslipRoot,fullfile(exampleDir,'utils'));
+initSSLIP;
 
 % load aligned data
-load(fullfile(pwd,'..','data','NiSuperAloy_Aligned.mat'));
+load(fullfile(sslipRoot,'data','NiSuperAloy_Aligned.mat'));
 
 % set MTex preferences
 plotx2east

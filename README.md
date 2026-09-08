@@ -11,8 +11,8 @@ The **SSLIP** function library is written in [**MATLAB**](https://mathworks.com/
 **Requires MTEX 6.1 or later. The regression checks and both examples have been tested with MTEX 6.1.0 and the official MTEX 7.0.0 release using MATLAB R2024b.** See the [validation results and numerical limitations](docs/mtex7-and-pr2-review.md).
 
 Both MTEX versions use the same functions and options. Initialize your chosen
-MTEX version in a fresh MATLAB session, then run the examples as usual. For a
-quick compatibility check, add `tests/` to the MATLAB path and run
+MTEX version in a fresh MATLAB session, then initialize SSLIP as shown below.
+For a quick compatibility check, add `tests/` to the MATLAB path and run
 `runSSLIPChecks` ([background-run instructions](tests/README.md)).
 
 It is important to use aligned EBSD/DIC data. See the following repository for an alignment framework: [**NanoMech_Alignment_Matlab**](https://github.com/Tijmenvermeij/NanoMech_Alignment_Matlab).
@@ -32,8 +32,56 @@ single-slip solving, and the small plotting routines adopted from
 [PR #2](https://github.com/Tijmenvermeij/SSLIP/pull/2). The adapted commits retain
 his co-author credit; the [integration notes](docs/mtex7-and-pr2-review.md)
 identify his original commits and the corrections made during integration.
-The structured displacement/gradient input and automatic stress alignment are
-also adapted from his PR.
+The structured displacement/gradient input, automatic stress alignment, folder
+layout, and `initSSLIP` initializer are also adapted from his PR.
+
+# Getting started
+
+Start your chosen MTEX version, then add the SSLIP repository root and run
+Philipp's initializer:
+
+```matlab
+addpath('/path/to/SSLIP');
+initSSLIP;
+```
+
+This adds `src`, `src/plotting`, and `src/utils` for the current session.
+Replace old `addpath('/path/to/SSLIP/src')` setup with the two lines above;
+adding only `src` no longer includes the moved plotting and utility functions.
+The initializer leaves MTEX selection, the working directory, and the saved
+MATLAB path to the caller.
+
+The adopted folder layout is:
+
+```text
+initSSLIP.m       Library initialization
+src/             SSLIP entry point, preprocessing, and solvers
+src/plotting/    Activity, deformation, residual, and rotation plots
+src/utils/       Shared numerical and grid helpers
+examples/        Ni and virtual HCP example scripts
+examples/utils/  Synthetic slip-step generation helpers
+data/            Supplied Ni dataset
+tests/           Regression checks and example runner
+```
+
+# Examples
+
+After starting MTEX, run either example by its full path:
+
+```matlab
+run('/path/to/SSLIP/examples/NiSuperAlloyExperiment.m');
+run('/path/to/SSLIP/examples/virtualExperimentHCP.m');
+```
+
+The scripts initialize SSLIP and add their own example helpers. They locate
+code and data relative to the script file, so input lookup does not depend
+on the current working directory. Both scripts clear workspace variables and
+close figures before running.
+
+Results are saved in the directory where the script executes. MATLAB's `run`
+command above executes in `examples/` and saves the result MAT files there.
+For isolated copies and exported comparison figures, use the
+[example runner](tests/README.md#full-examples).
 
 # Optional rotation correction
 

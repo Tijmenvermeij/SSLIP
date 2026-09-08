@@ -6,7 +6,8 @@ function runSSLIPChecks
 root = fileparts(fileparts(mfilename('fullpath')));
 oldPath = path;
 pathCleanup = onCleanup(@() path(oldPath)); %#ok<NASGU>
-addpath(fullfile(root, 'src'));
+addpath(root);
+initSSLIP;
 oldVisibility = get(groot, 'defaultFigureVisible');
 figureCleanup = onCleanup(@() set(groot, 'defaultFigureVisible', oldVisibility)); %#ok<NASGU>
 set(groot, 'defaultFigureVisible', 'off');

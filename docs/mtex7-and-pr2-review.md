@@ -527,6 +527,70 @@ checks and example calculations themselves complete successfully.
 Source references and the feature commit's `Co-authored-by` trailer credit
 Philipp. Activity grouping/ranking and folder organization remain separate steps.
 
+## Reorganization checkpoint 6: folders and initialization
+
+This checkpoint adopts Philipp's folder layout and `initSSLIP` from
+[`d3ee1a5`](https://github.com/PhilKro/SSLIP/commit/d3ee1a54eb9f8248565e0063060e749f9f56b9ce).
+The ten relocated functions retain their exact bytes, including existing author
+and third-party notices. Solver names and numerical implementations stay intact.
+
+| Folder | Contents |
+| --- | --- |
+| `src` | Entry point, preprocessing, effective strain, filtering, and solvers |
+| `src/plotting` | The four existing activity/deformation/residual/rotation plotters |
+| `src/utils` | `coarsegrainDisp`, `dummyEBSDSimple`, `nanconv`, and `parfor_wait` |
+| `examples/utils` | `generateSlipStepField` and `getTraceProjB` |
+
+The root-level initializer explicitly adds the three library folders. This
+adapts Philipp's recursive path setup so deprecated, test, and example folders
+are not automatically exposed as library code. It does not initialize MTEX,
+change the working directory, or save the user's MATLAB path.
+
+Each example derives the repository root from its own filename, calls
+`initSSLIP`, and adds `examples/utils`. Ni data lookup now also uses that root.
+This resolves the PR's missing example-helper paths and removes dependence on
+`pwd` for input lookup. Outputs continue to use the execution directory; the
+README explains MATLAB's `run` behavior and the isolated example runner.
+
+For existing analysis scripts, replace a path setup that only adds `src` with:
+
+```matlab
+addpath('/path/to/SSLIP');
+initSSLIP;
+```
+
+No forwarding functions were left in the old locations. The existing examples
+and checks initialize the new layout themselves. The example runner copies
+`initSSLIP` and verifies after each example that all SSLIP functions, including
+the example helpers, resolve inside its temporary checkout.
+
+### Validation
+
+The focused checks and full Ni/HCP examples run successfully from a clean copy
+on MTEX 6.1.0 and 7.0.0. With rotation off and on, all eight sets of fitted
+activities, residuals, solver flags, gradients, coordinates, slip tensors, and
+optional rotations match their version's checkpoint-5 baseline exactly.
+The 12 exported activity/rotation PNGs are pixel-identical.
+
+A whole-object equality check differed for the saved MTEX 7 stress object in
+one Ni rotation case. The physical stress matrix, rank, symmetry group,
+coordinate-frame basis and names, and plotting convention match; all other
+options match exactly. The numerical arrays and image pixels also match. The
+comparison therefore checks these stress values explicitly rather than relying
+on equality of the serialized MTEX object and its referenced objects.
+
+An additional MTEX 7 run invoked each example by name from an unrelated working
+folder, so MATLAB did not automatically switch into `examples/`. Both located
+their inputs and helpers, retained their numerical results, and saved their MAT
+files in that execution folder. A separate initializer check retained the
+chosen MTEX and working directory and kept example utilities off the library
+path until an example requested them.
+
+All runs used disabled figure windows. The supplied Ni dataset remains tracked,
+and local literature remains ignored. Source references and the adaptation
+commit's `Co-authored-by` trailer retain Philipp's contribution credit.
+Activity grouping and dominant-system ranking remain separate proposals.
+
 ## Reproducing the checks
 
 See [tests/README.md](../tests/README.md). The example runner saves numeric

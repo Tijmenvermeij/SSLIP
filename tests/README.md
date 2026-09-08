@@ -21,6 +21,9 @@ addpath('/path/to/SSLIP/tests');
 runSSLIPChecks;
 ```
 
+The checks call the repository's `initSSLIP` automatically to load the source,
+plotting, and utility folders. Adding only `src` is no longer sufficient.
+
 Requires Optimization, Parallel Computing, and Image Processing Toolboxes. The checks use
 real `coneprog` solves but disable automatic pool creation temporarily, restoring
 the previous setting afterwards. They cover absolute and relative residual
@@ -67,10 +70,14 @@ of crystallographic slip systems.
 ## Full examples
 
 The example runner also requires Image Processing Toolbox. It copies the code,
-example scripts, and sample data into a temporary working folder inside the
+initializer, example scripts and helpers, and sample data into a temporary
+working folder inside the
 specified output directory, then runs both complete examples. It saves numeric
 results, including solver exit flags, and an image of each final activity plot.
-The source checkout is not used for generated results.
+After each example, it verifies that every SSLIP function and example helper
+resolves inside the temporary copy. This catches missing paths or accidental
+dependence on another checkout. The source checkout is not used for generated
+results.
 
 ```matlab
 runSSLIPExamples('/path/to/results/mtex61');
@@ -103,5 +110,11 @@ not assume identical slip amplitudes or silently accept differing solver status.
 See the [validation report](../docs/mtex7-and-pr2-review.md) for the measured
 round-off sensitivity of the example problems.
 
-To run the supplied scripts directly, use the `examples/` directory as the
-working directory. They save result MAT files there.
+To run a supplied script directly, use its full path, for example:
+
+```matlab
+run('/path/to/SSLIP/examples/NiSuperAlloyExperiment.m');
+```
+
+The script locates its own code and data. MATLAB's `run` executes it in
+`examples/`, so its result MAT file is saved there.
